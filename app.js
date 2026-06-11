@@ -477,11 +477,11 @@ function subCatequistas(turmaId) {
 
 async function salvarPresencas(turmaId) {
   var alunos = DADOS.catequizandos.filter(function (a) { return a.turmaId === turmaId; });
-  var ids = alunos.map(function (a) { return parseInt(a.id); }); // Converte IDs para número
+  var ids = alunos.map(function (a) { return parseInt(a.id); }); // Converte IDs para o formato do Supabase
   
   var btn = document.getElementById('btn-salvar-presenca');
   if (btn) {
-    // Coloca o spinner girando no botão
+    // Coloca o botão a girar para o catequista saber que está a carregar
     btn.innerHTML = '<div class="spin" style="width:20px;height:20px;border-width:2px;border-top-color:#fff;margin:0 auto"></div>';
     btn.disabled = true;
   }
@@ -491,7 +491,7 @@ async function salvarPresencas(turmaId) {
     var sit = _presRegistros[alunoId];
     if (sit) {
       novos.push({ 
-        catequizando_id: parseInt(alunoId), // Converte para o formato numérico do Supabase
+        catequizando_id: parseInt(alunoId), 
         data_encontro: _presData, 
         tipo: _presTipo, 
         situacao: sit 
@@ -499,17 +499,24 @@ async function salvarPresencas(turmaId) {
     }
   });
 
-  // Envia para o banco de dados
+  // Envia para o Supabase!
   var sucesso = await salvarPresencasNaNuvem(ids, _presData, _presTipo, novos);
   
-  if (btn) {
-    if (sucesso) {
-      btn.innerHTML = ic('check') + ' Presenças salvas na nuvem!';
-    } else {
-      btn.innerHTML = 'Erro ao salvar';
-      alert('Ocorreu um erro ao salvar as presenças no banco de dados.');
+  if (sucesso) {
+    render(); // Força a atualização do ecrã com os dados reais da nuvem
+    
+    // Mostra um visto no botão para dar feedback visual
+    var btnNovo = document.getElementById('btn-salvar-presenca');
+    if (btnNovo) {
+      btnNovo.innerHTML = ic('check') + ' Salvo na nuvem!';
+      btnNovo.disabled = false;
     }
-    btn.disabled = false;
+  } else {
+    if (btn) {
+      btn.innerHTML = 'Erro ao salvar';
+      btn.disabled = false;
+    }
+    alert('Ocorreu um erro ao salvar na base de dados.');
   }
 }
 /* ==========================================================================
@@ -1109,7 +1116,7 @@ document.querySelectorAll('.pfj').forEach(function (grupo) {
 // 4. FUNÇÃO PARA SALVAR PRESENÇAS NA NUVEM
 async function salvarPresencasNaNuvem(alunosIds, dataEncontro, tipo, novosRegistros) {
   try {
-    // 1. Deleta as presenças anteriores dessa turma nesta data (para evitar duplicados caso o professor corrija uma falta)
+    // 1. Apaga as presenças antigas dessa turma nessa data (para não duplicar)
     await supabaseClient
       .from('presencas')
       .delete()
@@ -1117,13 +1124,13 @@ async function salvarPresencasNaNuvem(alunosIds, dataEncontro, tipo, novosRegist
       .eq('data_encontro', dataEncontro)
       .eq('tipo', tipo);
 
-    // 2. Insere as novas marcações no banco
+    // 2. Insere as novas marcações no banco de dados
     if (novosRegistros.length > 0) {
       let { error } = await supabaseClient.from('presencas').insert(novosRegistros);
       if (error) throw error;
     }
 
-    // 3. Atualiza a memória local puxando do banco para manter o sistema rápido
+    // 3. Atualiza a memória local puxando da nuvem para manter o sistema rápido
     let resPres = await supabaseClient.from('presencas').select('*');
     if (resPres.data) {
       DADOS.presencas = resPres.data.map(p => ({
