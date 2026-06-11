@@ -2,7 +2,7 @@
  * app.js — Interface do Sistema de Catequese (HTML/CSS/JS puro)
  * ========================================================================== */
 
-// Estado global da aplicação         
+// Estado global da aplicação
 var USUARIO = null;        
 var ABA = 'inicio';        
 var VISAO = null;          
@@ -130,7 +130,7 @@ function telaLogin() {
   var demoItens = usuarios.map(function (u) {
     return '<button class="demo-item" data-login="' + esc(u.login) + '" data-senha="' + esc(u.senha) + '">' +
       '<div class="info"><p>' + esc(ROTULO_PERFIL[u.tipo]) + '</p>' +
-      '<p>usuário: <span class="mono">' + esc(u.login) + '</span> · senha: <span class="mono">' + esc(u.senha) + '</span></p></div>' +
+      '<p>utilizador: <span class="mono">' + esc(u.login) + '</span> · senha: <span class="mono">' + esc(u.senha) + '</span></p></div>' +
       '<span class="preencher">Preencher</span></button>';
   }).join('');
 
@@ -139,16 +139,16 @@ function telaLogin() {
     '<img class="logo" src="' + LOGO_URL + '" alt="Paróquia Santo Antônio" />' +
     '<p class="login-sub">Sistema de Catequese</p>' +
     '<h1 class="serif login-titulo">Entrar</h1>' +
-    '<p class="login-desc">Acesse com seu usuário e senha</p>' +
+    '<p class="login-desc">Aceda com o seu utilizador e senha</p>' +
 
     (_erroLogin ? '<div class="erro-box">' + ic('alert') + ' ' + esc(_erroLogin) + '</div>' : '') +
 
-    '<div class="campo"><label>Usuário</label>' +
+    '<div class="campo"><label>Utilizador</label>' +
       '<input id="in-login" type="text" placeholder="Ex: maria" autocapitalize="none" autocorrect="off" /></div>' +
 
     '<div class="campo"><label>Senha</label>' +
       '<div class="senha-wrap">' +
-        '<input id="in-senha" type="' + (_mostrarSenha ? 'text' : 'password') + '" placeholder="Sua senha" />' +
+        '<input id="in-senha" type="' + (_mostrarSenha ? 'text' : 'password') + '" placeholder="A sua senha" />' +
         '<button class="senha-toggle" id="btn-toggle-senha" type="button">' + ic(_mostrarSenha ? 'eyeOff' : 'eye') + '</button>' +
       '</div></div>' +
 
@@ -159,7 +159,7 @@ function telaLogin() {
       '<p class="muted text-center" style="padding-top:4px">Toque num acesso para preencher e depois clique em Entrar.</p></div>' +
     '</details>' +
 
-    '<div class="text-center"><button class="link-qr" id="btn-abrir-qr">' + ic('qr') + ' Tela de presença por QR Code</button></div>' +
+    '<div class="text-center"><button class="link-qr" id="btn-abrir-qr">' + ic('qr') + ' Ecrã de presença por QR Code</button></div>' +
 
     '<div class="login-footer">Paróquia Santo Antônio · Santo Antônio do Jardim, SP</div>' +
   '</div></div>';
@@ -172,7 +172,7 @@ function fazerLogin() {
     return x.login.toLowerCase() === login && x.senha === senha;
   });
   if (!u) {
-    _erroLogin = 'Usuário ou senha incorretos. Verifique e tente novamente.';
+    _erroLogin = 'Utilizador ou senha incorretos. Verifique e tente novamente.';
     render();
     return;
   }
@@ -222,7 +222,7 @@ function ligarEventosLogin() {
 function header(titulo, comVoltar, subtitulo, comLogout) {
   var esquerda = comVoltar
     ? '<button class="icon-btn" id="btn-voltar">' + ic('arrowLeft') + '</button>'
-    : '<img src="' + ICONE_URL + '" alt="" style="width: 36px; height: 36px; object-fit: contain;" />'; // Usando ICONE_URL com caminho de assets
+    : '<img src="' + ICONE_URL + '" alt="" style="width: 36px; height: 36px; object-fit: contain;" />'; 
   var meio = subtitulo
     ? '<div class="titulo-area"><p class="small">Paróquia Santo Antônio</p><p class="serif nome">' + esc(titulo) + '</p></div>'
     : '<div class="titulo-area"><p class="serif nome">' + esc(titulo) + '</p></div>';
@@ -275,7 +275,6 @@ function telaDashboard() {
   var html = saudacao;
 
   if (u.tipo === 'padre' || u.tipo === 'escritorio') {
-    // Empty state a puxar da pasta assets
     var proximoHtml = proximo
       ? '<div class="row-between"><div><p class="serif" style="font-size:18px">' + esc(proximo.titulo) + '</p>' +
         '<p style="font-size:14px;color:var(--cinza-texto)">' + fmtDataExtenso(proximo.data) + '</p></div>' +
@@ -302,9 +301,8 @@ function telaDashboard() {
     var minhas = DADOS.turmas.filter(function (t) {
       return DADOS.catequistas.find(function (c) { return c.nome === u.nome && c.turmas.indexOf(t.id) >= 0; });
     });
-    html += '<p class="section-label">Minhas turmas</p>';
+    html += '<p class="section-label">As minhas turmas</p>';
     if (minhas.length === 0) {
-      // Empty state a puxar da pasta assets
       html += '<div class="text-center" style="padding: 48px 16px; opacity: 0.8;">' +
           '<img src="assets/PadroeiroSantoAntônio - Preto.svg" style="width: 64px; margin-bottom: 12px; opacity: 0.3;" alt="" />' +
           '<p class="muted">Nenhuma turma atribuída a você.</p>' +
@@ -374,7 +372,6 @@ function telaTurmas() {
   }).join('<div style="height:10px"></div>');
 
   if (turmas.length === 0) {
-    // Empty state a puxar da pasta assets
     lista = '<div class="text-center" style="padding: 48px 16px; opacity: 0.8;">' +
         '<img src="assets/PadroeiroSantoAntônio - Preto.svg" style="width: 64px; margin-bottom: 12px; opacity: 0.3;" alt="" />' +
         '<p class="muted">Nenhuma turma encontrada.</p>' +
@@ -523,7 +520,6 @@ function telaAgenda() {
   if (passados.length) html += '<p class="section-label">Já realizados</p>' + passados.map(cardEvento).join('');
   
   if (proximos.length === 0 && passados.length === 0) {
-    // Empty state a puxar da pasta assets
     html += '<div class="text-center" style="padding: 48px 16px; opacity: 0.8;">' +
         '<img src="assets/IgrejaMatriz - Preto.svg" style="width: 64px; margin-bottom: 12px; opacity: 0.3;" alt="" />' +
         '<p class="muted">A agenda está vazia.</p>' +
@@ -539,6 +535,7 @@ function telaAgenda() {
 var _filtroApostila = 'todas';
 
 function telaApostilas() {
+  var u = USUARIO;
   var niveis = [];
   DADOS.apostilas.forEach(function (a) { if (niveis.indexOf(a.nivel) < 0) niveis.push(a.nivel); });
   var filtradas = _filtroApostila === 'todas' ? DADOS.apostilas : DADOS.apostilas.filter(function (a) { return a.nivel === _filtroApostila; });
@@ -550,15 +547,17 @@ function telaApostilas() {
     return '<div class="card card-pad" style="display:flex;align-items:center;gap:12px;margin-bottom:8px">' +
       '<div style="width:44px;height:56px;border-radius:6px;background:linear-gradient(180deg,#fff7ed,#fed7aa);display:flex;align-items:center;justify-content:center;border:1px solid #fdba74;flex-shrink:0">' + ic('book', '') + '</div>' +
       '<div style="flex:1;min-width:0"><p class="eyebrow">Capítulo ' + a.capitulo + ' · ' + esc(a.nivel) + '</p>' +
-      '<p class="serif" style="font-size:16px;margin-top:2px">' + esc(a.titulo) + '</p>' +
-      '<p class="muted">' + a.paginas + ' páginas</p></div>' +
-      '<button class="icon-btn" data-baixar="' + esc(a.titulo) + '">' + ic('download') + '</button></div>';
+      '<p class="serif" style="font-size:16px;margin-top:2px">' + esc(a.titulo) + '</p></div>' +
+      '<button class="icon-btn" onclick="window.open(\'' + esc(a.url) + '\', \'_blank\')" title="Baixar material">' + ic('download') + '</button></div>';
   }).join('');
 
-  return '<div style="padding-top:4px"><h2 class="serif page-titulo">Apostilas</h2>' +
-    '<p class="muted" style="color:var(--cinza-texto);font-size:14px">Material da catequese para download e consulta</p></div>' +
+  var botaoNova = (u.tipo === 'padre' || u.tipo === 'escritorio')
+    ? '<button class="btn btn-primary btn-sm" id="btn-nova-apostila">' + ic('plus') + ' Nova</button>' : '';
+
+  return '<div class="row-between" style="padding-top:4px"><h2 class="serif page-titulo">Apostilas</h2>' + botaoNova + '</div>' +
+    '<p class="muted" style="color:var(--cinza-texto);font-size:14px;margin-top:4px">Material da catequese para download e consulta</p>' +
     '<div style="display:flex;gap:8px;overflow-x:auto;margin:12px -16px;padding:0 16px 4px" id="chips-apostila">' + chips + '</div>' +
-    lista;
+    (lista || '<p class="muted text-center" style="margin-top:24px">Nenhuma apostila encontrada.</p>');
 }
 
 /* ==========================================================================
@@ -570,8 +569,8 @@ function telaMais() {
     { id: 'catequistas', label: 'Catequistas', icone: 'grad', who: ['padre', 'escritorio'] },
     { id: 'catequizandos', label: 'Catequizandos', icone: 'users', who: ['padre', 'escritorio'] },
     { id: 'relatorios', label: 'Relatórios', icone: 'chart', who: ['padre'] },
-    { id: 'usuarios', label: 'Usuários e acessos', icone: 'key', who: ['padre', 'escritorio'] },
-    { id: 'qr', label: 'Tela QR Code (demo)', icone: 'qr', who: ['padre', 'catequista', 'escritorio'] }
+    { id: 'usuarios', label: 'Utilizadores e acessos', icone: 'key', who: ['padre', 'escritorio'] },
+    { id: 'qr', label: 'Ecrã QR Code (demo)', icone: 'qr', who: ['padre', 'catequista', 'escritorio'] }
   ];
   var lista = itens.filter(function (it) { return it.who.indexOf(u.tipo) >= 0; }).map(function (it) {
     return '<button class="item-lista" data-mais="' + it.id + '" style="border-radius:0">' +
@@ -596,7 +595,7 @@ function telaMais() {
  * PÁGINAS INTERNAS (acessadas via "Mais")
  * ========================================================================== */
 function telaPaginaInterna(pagina) {
-  var titulos = { catequistas: 'Catequistas', catequizandos: 'Catequizandos', relatorios: 'Relatórios', usuarios: 'Usuários' };
+  var titulos = { catequistas: 'Catequistas', catequizandos: 'Catequizandos', relatorios: 'Relatórios', usuarios: 'Utilizadores' };
   var corpo = '';
   if (pagina === 'relatorios') corpo = pgRelatorios();
   else if (pagina === 'catequistas') corpo = pgCatequistas();
@@ -679,14 +678,14 @@ function pgUsuarios() {
   var usuarios = DADOS.usuarios || [];
   var botao = '<button class="btn btn-primary btn-sm" id="btn-novo-usuario">' + ic('userPlus') + ' Novo acesso</button>';
   var aviso = '<div class="info-box" style="margin-bottom:12px;display:flex;align-items:flex-start;gap:8px">' + ic('shield', '') +
-    ' Aqui você cria os logins de quem vai usar o sistema. Cada pessoa entra com seu próprio usuário e senha, e o perfil define o que ela pode fazer.</div>';
+    ' Aqui você cria os logins de quem vai usar o sistema. Cada pessoa entra com o seu próprio utilizador e senha, e o perfil define o que ela pode fazer.</div>';
   var lista = usuarios.map(function (u) {
     var ehVoce = u.login === USUARIO.login;
     return '<div class="card card-pad" style="margin-bottom:8px"><div style="display:flex;align-items:center;gap:12px">' +
       '<div class="avatar cinza">' + esc(iniciais(u.nome)) + '</div>' +
       '<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><p style="font-size:14px;font-weight:500">' + esc(u.nome) + '</p>' +
       (ehVoce ? '<span class="pill pill-success">você</span>' : '') + '</div>' +
-      '<p class="muted" style="margin-top:2px">usuário: <span class="mono">' + esc(u.login) + '</span></p></div>' +
+      '<p class="muted" style="margin-top:2px">utilizador: <span class="mono">' + esc(u.login) + '</span></p></div>' +
       '<div style="display:flex;align-items:center;gap:8px">' +
       '<span class="pill ' + (u.tipo === 'padre' ? 'pill-accent' : 'pill-neutral') + '">' + ROTULO_PERFIL[u.tipo] + '</span>' +
       '<button class="icon-btn" data-remover-usuario="' + u.id + '" title="Remover acesso">' + ic('trash') + '</button>' +
@@ -711,11 +710,11 @@ function abrirModal(titulo, corpoHtml) {
 function fecharModal() { document.getElementById('modal-container').innerHTML = ''; }
 
 function abrirBoletim(alunoId) {
-  var aluno = DADOS.catequizandos.find(function (a) { return a.id === alunoId; });
+  var aluno = DADOS.catequizandos.find(function (a) { return a.id === String(alunoId); });
   if (!aluno) return;
   var turma = DADOS.turmas.find(function (t) { return t.id === aluno.turmaId; });
   var av = avaliarAluno(aluno, DADOS.presencas);
-  var pres = DADOS.presencas.filter(function (p) { return p.catequizandoId === alunoId; });
+  var pres = DADOS.presencas.filter(function (p) { return p.catequizandoId === aluno.id; });
   var presCat = pres.filter(function (p) { return p.tipo === 'catequese'; });
   var presMissa = pres.filter(function (p) { return p.tipo === 'missa'; });
 
@@ -857,7 +856,7 @@ function modalNovoCatequista() {
 function modalNovoUsuario() {
   var corpo = '<div class="stack">' +
     '<div class="campo"><label>Nome da pessoa</label><input id="nu-nome" placeholder="Ex: João Carlos Oliveira" /></div>' +
-    '<div class="campo"><label>Usuário (para entrar no sistema)</label><input id="nu-login" placeholder="Ex: joao" autocapitalize="none" autocorrect="off" /></div>' +
+    '<div class="campo"><label>Utilizador (para entrar no sistema)</label><input id="nu-login" placeholder="Ex: joao" autocapitalize="none" autocorrect="off" /></div>' +
     '<div class="campo"><label>Senha</label><input id="nu-senha" placeholder="Defina uma senha" /></div>' +
     '<div class="campo"><label>Perfil de acesso</label><select id="nu-tipo">' +
       '<option value="catequista">Catequista — regista presença da própria turma</option>' +
@@ -884,14 +883,47 @@ function modalNovoUsuario() {
 
 function removerUsuario(id) {
   var usuarios = DADOS.usuarios || [];
-  var u = usuarios.find(function (x) { return x.id === id; });
+  var u = usuarios.find(function (x) { return x.id === String(id); });
   if (!u) return;
   if (u.login === USUARIO.login) { alert('Não pode remover o utilizador com o qual está ligado.'); return; }
   var padres = usuarios.filter(function (x) { return x.tipo === 'padre'; });
   if (u.tipo === 'padre' && padres.length <= 1) { alert('Não é possível remover o único utilizador com perfil de Pároco.'); return; }
   if (confirm('Remover o acesso de "' + u.nome + '"? Essa pessoa não poderá mais entrar no sistema.')) {
-    atualizar('usuarios', usuarios.filter(function (x) { return x.id !== id; }));
+    atualizar('usuarios', usuarios.filter(function (x) { return x.id !== String(id); }));
   }
+}
+
+function modalNovaApostila() {
+  var corpo = '<div class="stack">' +
+    '<div class="campo"><label>Título do material</label><input id="nap-titulo" placeholder="Ex: Encontro 1 - O Pai Nosso" /></div>' +
+    '<div class="campo"><label>Nível</label><select id="nap-nivel"><option>Eucaristia I</option><option>Eucaristia II</option><option>Crisma I</option><option>Crisma II</option></select></div>' +
+    '<div class="campo"><label>Capítulo / Ordem (Número)</label><input id="nap-capitulo" type="number" placeholder="Ex: 1" value="1" /></div>' +
+    '<div class="campo"><label>Ficheiro (PDF, Word, Imagem)</label><input id="nap-arquivo" type="file" style="background:rgba(255,255,255,0.9);padding:8px" /></div>' +
+    '<button class="btn btn-primary btn-lg" id="nap-salvar">' + ic('check') + ' Enviar apostila</button></div>';
+  
+  abrirModal('Nova apostila', corpo);
+
+  document.getElementById('nap-salvar').onclick = async function () {
+    var titulo = document.getElementById('nap-titulo').value.trim();
+    var nivel = document.getElementById('nap-nivel').value;
+    var capitulo = document.getElementById('nap-capitulo').value || 1;
+    var arquivoInput = document.getElementById('nap-arquivo');
+
+    if (!titulo || arquivoInput.files.length === 0) { alert('Preencha o título e selecione um ficheiro para enviar.'); return; }
+
+    var btn = document.getElementById('nap-salvar');
+    btn.innerHTML = '<div class="spin" style="width:20px;height:20px;border-width:2px;border-top-color:#fff;margin:0 auto"></div>';
+    btn.disabled = true;
+
+    var sucesso = await uploadApostila(arquivoInput.files[0], titulo, nivel, parseInt(capitulo));
+    
+    if (sucesso) {
+      fecharModal();
+    } else {
+      btn.innerHTML = ic('check') + ' Enviar apostila';
+      btn.disabled = false;
+    }
+  };
 }
 
 /* ==========================================================================
@@ -919,7 +951,7 @@ function telaQR() {
       '<div class="card card-pad stack">' +
         '<div class="campo" style="margin:0"><label>O seu nome completo</label><input id="qr-nome" placeholder="Digite o seu nome" /></div>' +
         '<div class="campo" style="margin:0"><label>Nome do seu catequista</label><input id="qr-cat" placeholder="Ex: Maria Aparecida" /></div>' +
-        '<p class="muted">Ao confirmar, enviamos o seu nome e a sua localização para o(a) catequista validar a presença.</p>' +
+        '<p class="muted">Ao confirmar, enviamos a sua localização para o(a) catequista validar a presença.</p>' +
         '<button class="btn btn-primary btn-lg" id="qr-confirmar">' + ic('check') + ' Confirmar presença</button>' +
       '</div></div>';
   } else if (_qrStep === 'loading') {
@@ -928,7 +960,7 @@ function telaQR() {
     corpo = '<div style="max-width:420px;margin:0 auto;padding:32px 16px" class="text-center">' +
       '<div class="avatar" style="width:80px;height:80px;background:var(--verde-bg);color:var(--verde);margin:0 auto 16px">' + ic('check') + '</div>' +
       '<h1 class="serif" style="font-size:24px;margin-bottom:8px">Presença registada!</h1>' +
-      '<p class="muted" style="margin-bottom:24px">O(A) seu(sua) catequista <b>' + esc(_qrCatequista) + '</b> vai validar no sistema. Já pode entrar.</p>' +
+      '<p class="muted" style="margin-bottom:24px">O(a) catequista <b>' + esc(_qrCatequista) + '</b> vai validar no sistema. Já pode entrar.</p>' +
       '<div class="card card-pad stack" style="text-align:left">' +
         '<div class="row-between"><span class="muted">Nome</span><span style="font-size:13px;font-weight:500">' + esc(_qrNome) + '</span></div>' +
         '<div class="row-between"><span class="muted">Catequista</span><span style="font-size:13px;font-weight:500">' + esc(_qrCatequista) + '</span></div>' +
@@ -1010,6 +1042,7 @@ function ligarEventosApp() {
   var bNovoAlunoP = document.getElementById('btn-novo-catequizando'); if (bNovoAlunoP) bNovoAlunoP.onclick = function () { modalNovoAluno(null); };
   var bNovoUsuario = document.getElementById('btn-novo-usuario'); if (bNovoUsuario) bNovoUsuario.onclick = modalNovoUsuario;
   var bNovoAluno = document.getElementById('btn-novo-aluno'); if (bNovoAluno) bNovoAluno.onclick = function () { modalNovoAluno(bNovoAluno.getAttribute('data-turma')); };
+  var bNovaApostila = document.getElementById('btn-nova-apostila'); if (bNovaApostila) bNovaApostila.onclick = modalNovaApostila;
 
   document.querySelectorAll('[data-remover-usuario]').forEach(function (b) {
     b.onclick = function () { removerUsuario(b.getAttribute('data-remover-usuario')); };
@@ -1038,9 +1071,6 @@ function ligarEventosApp() {
   document.querySelectorAll('[data-filtro]').forEach(function (b) {
     b.onclick = function () { _filtroApostila = b.getAttribute('data-filtro'); render(); };
   });
-  document.querySelectorAll('[data-baixar]').forEach(function (b) {
-    b.onclick = function () { alert('Download de "' + b.getAttribute('data-baixar') + '" — próxima etapa.'); };
-  });
 
   var bSair = document.getElementById('btn-sair');
   if (bSair) bSair.onclick = function () { USUARIO = null; ABA = 'inicio'; VISAO = null; render(); };
@@ -1050,8 +1080,5 @@ function ligarEventosApp() {
  * INICIALIZAÇÃO
  * ========================================================================== */
 (function iniciar() {
-  // O carregamento arranca de forma assíncrona.
-  // O "boot" (aquela roda de carregamento inicial) só sai do ecrã
-  // quando a função carregarDadosDaNuvem terminar de ler do Supabase.
   carregarDadosDaNuvem();
 })();

@@ -7,19 +7,16 @@ const ICONE_URL = "assets/PadroeiroSantoAntônio2.svg";
 
 // 1. CONFIGURAÇÃO DO SUPABASE
 const SUPABASE_URL = 'https://kmaprgbdghsyftbwminu.supabase.co'; 
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttYXByZ2JkZ2hzeWZ0YndtaW51Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNjkxNDgsImV4cCI6MjA5Njc0NTE0OH0.Y8kuTIfgVWFYtc4NtVlPoC-ZI5nbHFJrwfbuVuBaNdg'; // <- NÃO ESQUEÇA DE COLAR SUA CHAVE AQUI
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttYXByZ2JkZ2hzeWZ0YndtaW51Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNjkxNDgsImV4cCI6MjA5Njc0NTE0OH0.Y8kuTIfgVWFYtc4NtVlPoC-ZI5nbHFJrwfbuVuBaNdg'; // <- COLE A SUA CHAVE AQUI
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 var DADOS = {
   turmas: [], catequistas: [], catequizandos: [], presencas: [], eventos: [], usuarios: [],
-  apostilas: [ 
-    { id: 'ap1', nivel: 'Eucaristia I', titulo: 'Quem é Jesus para mim', capitulo: 1, paginas: 18 },
-    { id: 'ap2', nivel: 'Eucaristia I', titulo: 'O Pai Nosso', capitulo: 2, paginas: 14 }
-  ]
+  apostilas: [] // Agora começa vazio, pois vamos buscar à nuvem!
 };
 
-// 2. FUNÇÃO PARA CARREGAR DADOS DA NUVEM (Com conversão de Tipos)
+// 2. FUNÇÃO PARA CARREGAR DADOS DA NUVEM
 async function carregarDadosDaNuvem() {
   try {
     let resUsers = await supabaseClient.from('usuarios').select('*');
@@ -65,6 +62,14 @@ async function carregarDadosDaNuvem() {
       }));
     }
 
+    // Busca das Apostilas
+    let resApostilas = await supabaseClient.from('apostilas').select('*');
+    if (resApostilas.data) {
+      DADOS.apostilas = resApostilas.data.map(ap => ({
+        id: String(ap.id), titulo: ap.titulo, nivel: ap.nivel, capitulo: ap.capitulo, url: ap.arquivo_url
+      }));
+    }
+
     concluirCarregamento();
 
   } catch (erro) {
@@ -87,4 +92,43 @@ function atualizar(chave, valorNovo) {
 
 function novoId() {
   return 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+// 3. FUNÇÃO DE UPLOAD DE APOSTILAS
+async function uploadApostila(arquivo, titulo, nivel, capitulo) {
+  try {
+    // 1. Gera um nome único para não substituir ficheiros com nomes iguais
+    const extensao = arquivo.name.split('.').pop();
+    const nomeUnico = Date.now() + '_' + Math.random().toString(36).slice(2, 7) + '.' + extensao;
+    
+    // 2. Envia o ficheiro para a pasta 'apostilas' no Supabase Storage
+    let resUpload = await supabaseClient.storage.from('apostilas').upload(nomeUnico, arquivo);
+    if (resUpload.error) throw resUpload.error;
+
+    // 3. Pega o link público para download
+    const resUrl = supabaseClient.storage.from('apostilas').getPublicUrl(nomeUnico);
+    const urlPublica = resUrl.data.publicUrl;
+
+    // 4. Salva as informações da apostila (com o link) na tabela do banco
+    let resDb = await supabaseClient.from('apostilas').insert([
+      { titulo: titulo, nivel: nivel, capitulo: capitulo, arquivo_url: urlPublica }
+    ]).select();
+    
+    if (resDb.error) throw resDb.error;
+
+    // 5. Atualiza a tela em tempo real
+    if (resDb.data && resDb.data.length > 0) {
+      let ap = resDb.data[0];
+      DADOS.apostilas.push({
+        id: String(ap.id), titulo: ap.titulo, nivel: ap.nivel, capitulo: ap.capitulo, url: ap.arquivo_url
+      });
+      render();
+    }
+    return true;
+
+  } catch (erro) {
+    console.error("Erro no upload:", erro);
+    alert("Ocorreu um erro ao enviar a apostila.");
+    return false;
+  }
 }
