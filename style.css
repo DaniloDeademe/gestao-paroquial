@@ -25,6 +25,7 @@
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: var(--fundo);
+  background-image: url('assets/Santo Antônio do Jardim SP RGB 3.svg');
   background-position: center center;
   background-repeat: no-repeat;
   background-size: 150%; 
@@ -150,7 +151,7 @@ button.card:hover {
 .app-header .titulo-area .small { font-size: 12px; color: var(--cinza-claro); line-height: 1; }
 .app-header .titulo-area .nome { font-size: 16px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ---------- icones com touch target maior ---------- */
+/* ---------- icones com área de toque maior ---------- */
 .icon-btn { 
   background: none; border: none; cursor: pointer; 
   padding: 10px; border-radius: 50%; color: var(--cinza-texto); 
@@ -299,3 +300,46 @@ svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-wid
 /* chips de filtro (apostilas) */
 .chip-filtro { padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 500; border: 1px solid var(--borda); background: rgba(255,255,255,0.9); color: var(--cinza-texto); white-space: nowrap; flex-shrink: 0; cursor: pointer; font-family: inherit; }
 .chip-filtro.on { background: var(--carvao); color: #fff; border-color: var(--carvao); }
+
+/* ==========================================================================
+ * OTIMIZAÇÃO PARA IMPRESSÃO E GERAÇÃO DE PDF
+ * ========================================================================== */
+@media print {
+  .app-header, 
+  .bottom-nav, 
+  .modal-overlay,
+  .modal-head,
+  .no-print,
+  #btn-voltar,
+  button:not(.nav-btn) { 
+    display: none !important; 
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    background-image: none !important; 
+  }
+
+  .modal {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important; padding: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    animation: none !important;
+  }
+
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    page-break-inside: avoid;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

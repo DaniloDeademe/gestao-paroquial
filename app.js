@@ -608,14 +608,19 @@ function pgRelatorios() {
   var stats = DADOS.turmas.map(function (t) {
     var alunos = DADOS.catequizandos.filter(function (a) { return a.turmaId === t.id; });
     var avs = alunos.map(function (a) { return avaliarAluno(a, DADOS.presencas); });
+    
     var aprov = avs.filter(function (a) { return a.statusGeral === 'Aprovado'; }).length;
     var reprov = avs.filter(function (a) { return a.statusGeral === 'Reprovado'; }).length;
+    
     var pc = avs.filter(function (a) { return a.percentualCatequese !== null; }).map(function (a) { return a.percentualCatequese; });
     var pm = avs.filter(function (a) { return a.percentualMissa !== null; }).map(function (a) { return a.percentualMissa; });
+    
     var mc = pc.length ? Math.round(pc.reduce(function (s, x) { return s + x; }, 0) / pc.length) : 0;
     var mm = pm.length ? Math.round(pm.reduce(function (s, x) { return s + x; }, 0) / pm.length) : 0;
+    
     return { turma: t, total: alunos.length, aprov: aprov, reprov: reprov, mc: mc, mm: mm };
   });
+
   var totalGeral = stats.reduce(function (s, x) { return s + x.total; }, 0);
   var aprovGeral = stats.reduce(function (s, x) { return s + x.aprov; }, 0);
   var taxa = totalGeral ? Math.round(aprovGeral / totalGeral * 100) : 0;
@@ -625,7 +630,7 @@ function pgRelatorios() {
     return '<div class="barra"><div class="marca75"></div><div class="preenche ' + (ok ? 'ok' : 'nao') + '" style="width:' + valor + '%;background:' + (ok ? 'var(--verde)' : 'var(--amarelo)') + '"></div></div>';
   }
 
-  var cards = '<div class="grid-2">' +
+  var cards = '<div class="grid-2" id="relatorio-print-area">' +
     '<div class="card card-pad"><p class="eyebrow">Total</p><p class="serif metric-num" style="margin-top:4px">' + totalGeral + '</p><p class="muted">catequizandos</p></div>' +
     '<div class="card card-pad"><p class="eyebrow">Aprovação</p><p class="serif metric-num" style="margin-top:4px">' + taxa + '%</p><p class="muted">' + aprovGeral + ' de ' + totalGeral + '</p></div>' +
   '</div>';
@@ -643,7 +648,11 @@ function pgRelatorios() {
     '</div>';
   }).join('');
 
-  return '<div style="padding-top:4px"><h2 class="serif page-titulo" style="display:none"></h2></div>' + cards + '<p class="section-label">Por turma</p>' + porTurma;
+  return '<div class="row-between" style="padding-top:4px;margin-bottom:16px;">' +
+      '<h2 class="serif page-titulo" style="display:none"></h2>' +
+      '<button class="btn btn-outline btn-sm" onclick="window.print()" style="margin-left:auto">' + ic('printer') + ' Imprimir Relatório Geral</button>' +
+    '</div>' + 
+    cards + '<p class="section-label">Por turma</p>' + porTurma;
 }
 
 function pgCatequistas() {
@@ -710,11 +719,12 @@ function abrirModal(titulo, corpoHtml) {
 function fecharModal() { document.getElementById('modal-container').innerHTML = ''; }
 
 function abrirBoletim(alunoId) {
-  var aluno = DADOS.catequizandos.find(function (a) { return a.id === String(alunoId); });
+  var aluno = DADOS.catequizandos.find(function (a) { return String(a.id) === String(alunoId); });
   if (!aluno) return;
-  var turma = DADOS.turmas.find(function (t) { return t.id === aluno.turmaId; });
+  var turma = DADOS.turmas.find(function (t) { return String(t.id) === String(aluno.turmaId); });
+  
   var av = avaliarAluno(aluno, DADOS.presencas);
-  var pres = DADOS.presencas.filter(function (p) { return p.catequizandoId === aluno.id; });
+  var pres = DADOS.presencas.filter(function (p) { return String(p.catequizandoId) === String(aluno.id); });
   var presCat = pres.filter(function (p) { return p.tipo === 'catequese'; });
   var presMissa = pres.filter(function (p) { return p.tipo === 'missa'; });
 
@@ -728,7 +738,7 @@ function abrirBoletim(alunoId) {
       '</div>';
   }
 
-  function histHtml(lista) {
+  function htmlHistorico(lista) {
     return lista.slice(-8).map(function (p) {
       var c = p.situacao === 'presente' ? 'p' : p.situacao === 'falta' ? 'f' : 'j';
       return '<div class="q ' + c + '" title="' + fmtData(p.data) + ' · ' + p.situacao + '">' + p.situacao[0].toUpperCase() + '</div>';
@@ -743,7 +753,7 @@ function abrirBoletim(alunoId) {
       }).join('') + '</ul>' : '';
 
   var corpo =
-    '<div class="stack">' +
+    '<div class="stack" id="boletim-print-area">' +
       '<div style="display:flex;align-items:flex-start;gap:12px">' +
         '<div class="avatar lg">' + esc(iniciais(aluno.nome)) + '</div>' +
         '<div style="flex:1"><p class="serif" style="font-size:20px">' + esc(aluno.nome) + '</p>' +
@@ -758,18 +768,17 @@ function abrirBoletim(alunoId) {
         barraPerc(av.percentualMissa, 'Frequência missa', av.statusMissa) + '</div>' +
       '<div><p class="eyebrow" style="margin-bottom:8px">Histórico recente</p>' +
         '<div class="card" style="overflow:hidden"><div style="display:grid;grid-template-columns:1fr 1fr">' +
-          '<div style="padding:12px;border-right:1px solid rgba(0,0,0,0.05)"><p class="muted" style="margin-bottom:8px">Catequese (' + presCat.length + ')</p><div class="hist">' + histHtml(presCat) + '</div></div>' +
-          '<div style="padding:12px"><p class="muted" style="margin-bottom:8px">Missa (' + presMissa.length + ')</p><div class="hist">' + histHtml(presMissa) + '</div></div>' +
+          '<div style="padding:12px;border-right:1px solid rgba(0,0,0,0.05)"><p class="muted" style="margin-bottom:8px">Catequese (' + presCat.length + ')</p><div class="hist">' + htmlHistorico(presCat) + '</div></div>' +
+          '<div style="padding:12px"><p class="muted" style="margin-bottom:8px">Missa (' + presMissa.length + ')</p><div class="hist">' + htmlHistorico(presMissa) + '</div></div>' +
         '</div></div></div>' +
-      '<div style="display:flex;gap:8px">' +
+      '<div style="display:flex;gap:8px; margin-top: 16px;" class="no-print">' +
         '<button class="btn btn-outline" style="flex:1" id="bol-pdf">' + ic('download') + ' Baixar PDF</button>' +
-        '<button class="btn btn-outline" style="flex:1" id="bol-print">' + ic('printer') + ' Imprimir</button>' +
+        '<button class="btn btn-outline" style="flex:1" id="bol-print" onclick="window.print()">' + ic('printer') + ' Imprimir Boletim</button>' +
       '</div>' +
     '</div>';
 
   abrirModal('Boletim do catequizando', corpo);
-  document.getElementById('bol-pdf').onclick = function () { alert('PDF do boletim — disponível na próxima etapa.'); };
-  document.getElementById('bol-print').onclick = function () { alert('Impressão consolidada — próxima etapa.'); };
+  document.getElementById('bol-pdf').onclick = function () { window.print(); };
 }
 
 function modalNovaTurma() {
@@ -1053,7 +1062,7 @@ function ligarEventosApp() {
   var inData = document.getElementById('in-data');
   if (inData) inData.onchange = function () { _presData = inData.value; render(); };
   document.querySelectorAll('.pfj').forEach(function (grupo) {
-    var alunoId = grupo.getAttribute('data-aluno');
+    var alunoId = group.getAttribute('data-aluno');
     grupo.querySelectorAll('button').forEach(function (bt) {
       bt.onclick = function () {
         var sit = bt.getAttribute('data-sit');
