@@ -6,61 +6,74 @@ const LOGO_URL = "assets/Santo Antônio do Jardim SP RGB 1.svg";
 const ICONE_URL = "assets/PadroeiroSantoAntônio2.svg"; 
 
 // 1. CONFIGURAÇÃO DO SUPABASE
-// Substitua estas strings pelos valores reais do seu painel Supabase (Project Settings > API)
-const SUPABASE_URL = 'https://kmaprgbdghsyftbwminu.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttYXByZ2JkZ2hzeWZ0YndtaW51Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNjkxNDgsImV4cCI6MjA5Njc0NTE0OH0.Y8kuTIfgVWFYtc4NtVlPoC-ZI5nbHFJrwfbuVuBaNdg';
+const SUPABASE_URL = 'https://kmaprgbdghsyftbwminu.supabase.co'; 
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttYXByZ2JkZ2hzeWZ0YndtaW51Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNjkxNDgsImV4cCI6MjA5Njc0NTE0OH0.Y8kuTIfgVWFYtc4NtVlPoC-ZI5nbHFJrwfbuVuBaNdg'; // <- NÃO ESQUEÇA DE COLAR SUA CHAVE AQUI
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// MUDANÇA AQUI: Trocamos o nome para 'supabaseClient' para não dar conflito com a biblioteca original!
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// A variável DADOS vai manter a cópia local do que vem da base de dados
 var DADOS = {
-  turmas: [],
-  catequistas: [],
-  catequizandos: [],
-  presencas: [],
-  eventos: [],
-  usuarios: [],
-  // As apostilas continuam locais por agora, pois costumam ser material fixo
-  apostilas: [
+  turmas: [], catequistas: [], catequizandos: [], presencas: [], eventos: [], usuarios: [],
+  apostilas: [ 
     { id: 'ap1', nivel: 'Eucaristia I', titulo: 'Quem é Jesus para mim', capitulo: 1, paginas: 18 },
-    { id: 'ap2', nivel: 'Eucaristia I', titulo: 'O Pai Nosso', capitulo: 2, paginas: 14 },
-    { id: 'ap3', nivel: 'Eucaristia I', titulo: 'A Última Ceia', capitulo: 3, paginas: 22 },
-    { id: 'ap4', nivel: 'Eucaristia II', titulo: 'Mistério da Eucaristia', capitulo: 1, paginas: 24 },
-    { id: 'ap5', nivel: 'Eucaristia II', titulo: 'Os Mandamentos', capitulo: 2, paginas: 20 },
-    { id: 'ap6', nivel: 'Crisma I', titulo: 'O Espírito Santo', capitulo: 1, paginas: 28 },
-    { id: 'ap7', nivel: 'Crisma I', titulo: 'Os Dons do Espírito', capitulo: 2, paginas: 26 }
+    { id: 'ap2', nivel: 'Eucaristia I', titulo: 'O Pai Nosso', capitulo: 2, paginas: 14 }
   ]
 };
 
-// 2. FUNÇÃO PARA CARREGAR DADOS DA NUVEM (SELECT)
+// 2. FUNÇÃO PARA CARREGAR DADOS DA NUVEM
 async function carregarDadosDaNuvem() {
   try {
-    // Busca dados das tabelas criadas no Supabase
-    let resTurmas = await supabase.from('turmas').select('*');
-    if (!resTurmas.error && resTurmas.data) DADOS.turmas = resTurmas.data;
+    // Note que agora usamos 'supabaseClient.from(...)'
+    
+    let resUsers = await supabaseClient.from('usuarios').select('*');
+    if (resUsers.data) {
+      DADOS.usuarios = resUsers.data.map(u => ({
+        id: u.id, nome: u.nome, login: u.login, senha: u.senha_hash, tipo: u.tipo_perfil
+      }));
+    }
 
-    let resAlunos = await supabase.from('catequizandos').select('*');
-    if (!resAlunos.error && resAlunos.data) DADOS.catequizandos = resAlunos.data;
+    let resTurmas = await supabaseClient.from('turmas').select('*');
+    if (resTurmas.data) {
+      DADOS.turmas = resTurmas.data.map(t => ({
+        id: t.id, nome: t.nome, nivel: t.nivel, anoLetivo: t.ano_letivo, diaSemana: t.dia_semana, sala: t.sala
+      }));
+    }
 
-    let resCat = await supabase.from('catequistas').select('*');
-    if (!resCat.error && resCat.data) DADOS.catequistas = resCat.data;
+    let resAlunos = await supabaseClient.from('catequizandos').select('*');
+    if (resAlunos.data) {
+      DADOS.catequizandos = resAlunos.data.map(a => ({
+        id: a.id, nome: a.nome, turmaId: a.turma_id, dataNasc: a.data_nasc, responsavel: a.responsavel, telefone: a.telefone
+      }));
+    }
 
-    let resPres = await supabase.from('presencas').select('*');
-    if (!resPres.error && resPres.data) DADOS.presencas = resPres.data;
+    let resEventos = await supabaseClient.from('eventos').select('*');
+    if (resEventos.data) {
+      DADOS.eventos = resEventos.data.map(e => ({
+        id: e.id, titulo: e.titulo, data: e.data_evento, tipo: e.tipo, turmaId: e.turma_id
+      }));
+    }
 
-    let resEventos = await supabase.from('eventos').select('*');
-    if (!resEventos.error && resEventos.data) DADOS.eventos = resEventos.data;
+    let resPres = await supabaseClient.from('presencas').select('*');
+    if (resPres.data) {
+      DADOS.presencas = resPres.data.map(p => ({
+        id: p.id, catequizandoId: p.catequizando_id, data: p.data_encontro, tipo: p.tipo, situacao: p.situacao
+      }));
+    }
 
-    let resUsers = await supabase.from('usuarios').select('*');
-    if (!resUsers.error && resUsers.data) DADOS.usuarios = resUsers.data;
+    let resCat = await supabaseClient.from('catequistas').select('*, catequista_turma(turma_id)');
+    if (resCat.data) {
+      DADOS.catequistas = resCat.data.map(c => ({
+        id: c.id, nome: c.nome, nivel: c.nivel, telefone: c.telefone,
+        turmas: c.catequista_turma ? c.catequista_turma.map(ct => ct.turma_id) : []
+      }));
+    }
 
-    // Quando terminar, avisa o app.js para desenhar o ecrã
     concluirCarregamento();
 
   } catch (erro) {
-    console.error("Erro ao carregar dados do Supabase:", erro);
-    alert("Não foi possível ligar à base de dados. Verifique as credenciais no dados.js.");
-    concluirCarregamento(); // Fallback para não bloquear o ecrã
+    console.error("Erro na nuvem:", erro);
+    alert("Falha ao comunicar com o banco de dados. Aperte F12 e veja a aba Console.");
+    concluirCarregamento(); 
   }
 }
 
@@ -70,18 +83,11 @@ function concluirCarregamento() {
   if (boot) boot.style.display = 'none';
 }
 
-// 3. ATUALIZAR DADOS (Ponte entre app.js e Supabase)
-// Esta função faz o "Optimistic UI": atualiza o ecrã imediatamente e depois envia para a base de dados.
 function atualizar(chave, valorNovo) {
-  // Atualiza visualmente na hora
   DADOS[chave] = valorNovo;
-  render();
-
-  // No futuro, aqui fará as queries de INSERT/UPDATE do SQL em vez de substituir o array todo.
-  console.log(`Gravação acionada para a tabela: [${chave}]. Prepare as queries de INSERT no Supabase.`);
+  render(); 
 }
 
-// Gerador de IDs locais (quando passar 100% para SQL, o próprio Supabase vai gerar isto automaticamente)
 function novoId() {
   return 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
 }

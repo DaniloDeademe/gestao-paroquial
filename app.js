@@ -2,8 +2,7 @@
  * app.js — Interface do Sistema de Catequese (HTML/CSS/JS puro)
  * ========================================================================== */
 
-// Estado global da aplicação
-var DADOS = null;          
+// Estado global da aplicação         
 var USUARIO = null;        
 var ABA = 'inicio';        
 var VISAO = null;          
