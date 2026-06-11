@@ -475,22 +475,43 @@ function subCatequistas(turmaId) {
   }).join('');
 }
 
-function salvarPresencas(turmaId) {
+async function salvarPresencas(turmaId) {
   var alunos = DADOS.catequizandos.filter(function (a) { return a.turmaId === turmaId; });
-  var ids = alunos.map(function (a) { return a.id; });
-  var mantidos = DADOS.presencas.filter(function (p) {
-    return !(p.data === _presData && p.tipo === _presTipo && ids.indexOf(p.catequizandoId) >= 0);
-  });
+  var ids = alunos.map(function (a) { return parseInt(a.id); }); // Converte IDs para número
+  
+  var btn = document.getElementById('btn-salvar-presenca');
+  if (btn) {
+    // Coloca o spinner girando no botão
+    btn.innerHTML = '<div class="spin" style="width:20px;height:20px;border-width:2px;border-top-color:#fff;margin:0 auto"></div>';
+    btn.disabled = true;
+  }
+
   var novos = [];
   Object.keys(_presRegistros).forEach(function (alunoId) {
     var sit = _presRegistros[alunoId];
-    if (sit) novos.push({ id: novoId(), catequizandoId: alunoId, data: _presData, tipo: _presTipo, situacao: sit });
+    if (sit) {
+      novos.push({ 
+        catequizando_id: parseInt(alunoId), // Converte para o formato numérico do Supabase
+        data_encontro: _presData, 
+        tipo: _presTipo, 
+        situacao: sit 
+      });
+    }
   });
-  atualizar('presencas', mantidos.concat(novos));
-  var btn = document.getElementById('btn-salvar-presenca');
-  if (btn) { btn.innerHTML = ic('check') + ' Presenças salvas na base de dados'; }
-}
 
+  // Envia para o banco de dados
+  var sucesso = await salvarPresencasNaNuvem(ids, _presData, _presTipo, novos);
+  
+  if (btn) {
+    if (sucesso) {
+      btn.innerHTML = ic('check') + ' Presenças salvas na nuvem!';
+    } else {
+      btn.innerHTML = 'Erro ao salvar';
+      alert('Ocorreu um erro ao salvar as presenças no banco de dados.');
+    }
+    btn.disabled = false;
+  }
+}
 /* ==========================================================================
  * TELA — AGENDA
  * ========================================================================== */
@@ -1061,8 +1082,8 @@ function ligarEventosApp() {
   if (selTipo) selTipo.onchange = function () { _presTipo = selTipo.value; render(); };
   var inData = document.getElementById('in-data');
   if (inData) inData.onchange = function () { _presData = inData.value; render(); };
-  document.querySelectorAll('.pfj').forEach(function (grupo) {
-    var alunoId = group.getAttribute('data-aluno');
+document.querySelectorAll('.pfj').forEach(function (grupo) {
+    var alunoId = grupo.getAttribute('data-aluno'); // <-- O erro estava aqui!
     grupo.querySelectorAll('button').forEach(function (bt) {
       bt.onclick = function () {
         var sit = bt.getAttribute('data-sit');
@@ -1083,6 +1104,37 @@ function ligarEventosApp() {
 
   var bSair = document.getElementById('btn-sair');
   if (bSair) bSair.onclick = function () { USUARIO = null; ABA = 'inicio'; VISAO = null; render(); };
+}
+
+// 4. FUNÇÃO PARA SALVAR PRESENÇAS NA NUVEM
+async function salvarPresencasNaNuvem(alunosIds, dataEncontro, tipo, novosRegistros) {
+  try {
+    // 1. Deleta as presenças anteriores dessa turma nesta data (para evitar duplicados caso o professor corrija uma falta)
+    await supabaseClient
+      .from('presencas')
+      .delete()
+      .in('catequizando_id', alunosIds)
+      .eq('data_encontro', dataEncontro)
+      .eq('tipo', tipo);
+
+    // 2. Insere as novas marcações no banco
+    if (novosRegistros.length > 0) {
+      let { error } = await supabaseClient.from('presencas').insert(novosRegistros);
+      if (error) throw error;
+    }
+
+    // 3. Atualiza a memória local puxando do banco para manter o sistema rápido
+    let resPres = await supabaseClient.from('presencas').select('*');
+    if (resPres.data) {
+      DADOS.presencas = resPres.data.map(p => ({
+        id: String(p.id), catequizandoId: String(p.catequizando_id), data: p.data_encontro, tipo: p.tipo, situacao: p.situacao
+      }));
+    }
+    return true;
+  } catch (erro) {
+    console.error("Erro ao salvar presenças:", erro);
+    return false;
+  }
 }
 
 /* ==========================================================================
