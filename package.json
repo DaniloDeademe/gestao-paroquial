@@ -1,0 +1,37 @@
+{
+  "name": "controle-presenca-catequese",
+  "version": "3.0.0",
+  "description": "Sistema de controle de presença para catequese - Projeto Integrado UNIFEOB",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test:mutation": "stryker run"
+  },
+  "keywords": ["catequese", "presenca", "jest", "qualidade-de-software", "mutation-testing"],
+  "author": "Danilo",
+  "license": "ISC",
+  "devDependencies": {
+    "@stryker-mutator/core": "^8.0.0",
+    "@stryker-mutator/jest-runner": "^8.0.0",
+    "jest": "^29.0.0"
+  },
+  "jest": {
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/regrasNotas.js"
+    ],
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/.stryker-tmp/"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 100,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      }
+    }
+  }
+}

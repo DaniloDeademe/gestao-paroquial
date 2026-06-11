@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Análise de mutação: mede a QUALIDADE dos testes, não só a cobertura. O Stryker altera o código (cria mutantes) e verifica se os testes detectam a mudança. Mutantes equivalentes (que não alteram o comportamento observável) são documentados e desativados pontualmente no código com // Stryker disable.",
+  "packageManager": "npm",
+  "testRunner": "jest",
+  "reporters": ["clear-text", "progress", "html"],
+  "htmlReporter": { "fileName": "relatorios/mutacao.html" },
+  "coverageAnalysis": "perTest",
+  "mutate": [
+    "src/regrasFrequencia.js",
+    "src/regrasAprovacao.js",
+    "src/validacoes.js"
+  ]
+}
