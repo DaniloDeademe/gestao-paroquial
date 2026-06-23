@@ -3,15 +3,15 @@
  * ========================================================================== */
 
 // Estado global da aplicação
-var USUARIO = null;        
-var ABA = 'inicio';        
-var VISAO = null;          
-var QR_MODE = false;       
+let USUARIO = null;
+let ABA = 'inicio';
+let VISAO = null;
+let QR_MODE = false;
 
 // --------------------------------------------------------------------------
 // Ícones SVG (inline)
 // --------------------------------------------------------------------------
-var ICONS = {
+const ICONS = {
   home: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
   users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
@@ -88,7 +88,7 @@ function idadeAnos(dataNasc) {
   return anos;
 }
 
-var ROTULO_PERFIL = { padre: 'Pároco', catequista: 'Catequista', escritorio: 'Escritório paroquial' };
+const ROTULO_PERFIL = { padre: 'Pároco', catequista: 'Catequista', escritorio: 'Escritório paroquial' };
 
 function pillStatus(status) {
   var classe = status === 'Aprovado' ? 'pill-success' : status === 'Reprovado' ? 'pill-danger' : status === 'Em andamento' ? 'pill-neutral' : 'pill-neutral';
@@ -122,8 +122,8 @@ function render() {
 /* ==========================================================================
  * TELA — LOGIN
  * ========================================================================== */
-var _mostrarSenha = false;
-var _erroLogin = '';
+let _mostrarSenha = false;
+let _erroLogin = '';
 
 function telaLogin() {
   var usuarios = DADOS.usuarios || [];
@@ -385,10 +385,10 @@ function telaTurmas() {
 /* ==========================================================================
  * TELA — DETALHE DA TURMA
  * ========================================================================== */
-var _subtabTurma = 'catequizandos';
-var _presTipo = 'catequese';
-var _presData = new Date().toISOString().slice(0, 10);
-var _presRegistros = {}; 
+let _subtabTurma = 'catequizandos';
+let _presTipo = 'catequese';
+let _presData = new Date().toISOString().slice(0, 10);
+let _presRegistros = {};
 
 function telaTurmaDetalhe(turmaId) {
   var turma = DADOS.turmas.find(function (t) { return t.id === turmaId; });
@@ -560,7 +560,7 @@ function telaAgenda() {
 /* ==========================================================================
  * TELA — APOSTILAS
  * ========================================================================== */
-var _filtroApostila = 'todas';
+let _filtroApostila = 'todas';
 
 function telaApostilas() {
   var u = USUARIO;
@@ -966,10 +966,10 @@ function modalNovaApostila() {
 /* ==========================================================================
  * TELA — QR CODE
  * ========================================================================== */
-var _qrStep = 'form';
-var _qrNome = '';
-var _qrCatequista = '';
-var _qrLocal = null;
+let _qrStep = 'form';
+let _qrNome = '';
+let _qrCatequista = '';
+let _qrLocal = null;
 
 function telaQR() {
   var topo = '<header class="app-header"><div class="inner">' +

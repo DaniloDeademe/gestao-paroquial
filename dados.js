@@ -11,9 +11,9 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-var DADOS = {
+let DADOS = {
   turmas: [], catequistas: [], catequizandos: [], presencas: [], eventos: [], usuarios: [],
-  apostilas: [] // Agora começa vazio, pois vamos buscar à nuvem!
+  apostilas: []
 };
 
 // 2. FUNÇÃO PARA CARREGAR DADOS DA NUVEM
@@ -74,8 +74,18 @@ async function carregarDadosDaNuvem() {
 
   } catch (erro) {
     console.error("Erro na nuvem:", erro);
-    alert("Falha ao comunicar com o banco de dados. Aperte F12 e veja a aba Console.");
-    concluirCarregamento(); 
+    var boot = document.getElementById('boot');
+    if (boot) boot.style.display = 'none';
+    var app = document.getElementById('app');
+    if (app) {
+      app.innerHTML =
+        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:16px;padding:32px;text-align:center">' +
+          '<img src="' + ICONE_URL + '" style="width:64px;opacity:0.35" />' +
+          '<p style="font-size:18px;font-weight:600;color:#1A1A1A">Falha na conexão</p>' +
+          '<p style="font-size:14px;color:#666;max-width:280px;line-height:1.5">Não foi possível comunicar com o banco de dados.<br>Verifique sua internet e tente novamente.</p>' +
+          '<button onclick="location.reload()" style="margin-top:8px;padding:12px 24px;background:#B85F2F;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Tentar novamente</button>' +
+        '</div>';
+    }
   }
 }
 
