@@ -303,7 +303,6 @@ async function resolverRecuperacao(id) {
     DADOS.recuperacoes = DADOS.recuperacoes.map(function (r) {
       return r.id === String(id) ? Object.assign({}, r, { resolvido: true, resolvidoPor: USUARIO ? USUARIO.nome : null, dataResolucao: new Date().toISOString() }) : r;
     });
-    render();
     return true;
   } catch (erro) {
     console.error('Erro ao resolver solicitação:', erro);

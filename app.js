@@ -771,7 +771,7 @@ function pgUsuarios() {
           '<p class="muted">utilizador: <span class="mono">' + esc(r.login) + '</span></p>' +
           '<p class="muted">' + (r.data ? fmtData(r.data.slice(0,10)) + ' às ' + r.data.slice(11,16) : '—') + '</p>' +
         '</div>' +
-        '<button class="btn btn-primary btn-sm" data-resolver-recup="' + r.id + '" data-login-recup="' + esc(r.login) + '">' + ic('key') + ' Redefinir senha</button>' +
+        '<button class="btn btn-primary btn-sm" onclick="abrirRedefinicaoRecup(' + JSON.stringify(r.id) + ',' + JSON.stringify(r.login) + ')">' + ic('key') + ' Redefinir senha</button>' +
       '</div>';
     }).join('');
     var listaRes = resolvidas.map(function (r) {
@@ -1170,15 +1170,6 @@ function ligarEventosApp() {
     b.onclick = function () { modalRedefinirSenha(b.getAttribute('data-redefinir-senha')); };
   });
 
-  document.querySelectorAll('[data-resolver-recup]').forEach(function (b) {
-    b.onclick = function () {
-      var recuperacaoId = b.getAttribute('data-resolver-recup');
-      var login = b.getAttribute('data-login-recup');
-      var u = (DADOS.usuarios || []).find(function (x) { return x.login === login; });
-      if (!u) { alert('Utilizador "' + login + '" não encontrado.'); return; }
-      modalRedefinirSenha(u.id, recuperacaoId);
-    };
-  });
 
   var selTipo = document.getElementById('sel-tipo');
   if (selTipo) selTipo.onchange = function () { _presTipo = selTipo.value; render(); };
@@ -1788,6 +1779,12 @@ function modalRedefinirSenha(id, recuperacaoId) {
 /* ==========================================================================
  * INICIALIZAÇÃO
  * ========================================================================== */
+function abrirRedefinicaoRecup(recuperacaoId, login) {
+  var u = (DADOS.usuarios || []).find(function (x) { return x.login === login; });
+  if (!u) { alert('Utilizador "' + login + '" não encontrado.'); return; }
+  modalRedefinirSenha(u.id, recuperacaoId);
+}
+
 (function iniciar() {
   carregarDadosDaNuvem();
 })();
