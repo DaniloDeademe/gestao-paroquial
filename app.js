@@ -1599,23 +1599,46 @@ function modalParoquiano(id) {
  * RECUPERAÇÃO DE SENHA — Tela pública
  * ========================================================================== */
 function telaRecuperacaoSenha() {
+  var semDados = (DADOS.usuarios || []).length === 0;
+  var contato =
+    '<div style="background:#fff;border:1px solid var(--borda);border-radius:12px;padding:16px;margin-top:8px">' +
+      '<p style="font-size:13px;font-weight:600;margin-bottom:8px">Entre em contato com a secretaria</p>' +
+      '<p style="font-size:14px;margin-bottom:6px">' + ic('phone', '') + ' <a href="tel:+551936541258" style="color:var(--terracota)">(19) 3654-1258</a></p>' +
+      '<p style="font-size:14px">' + ic('phone', '') + ' <a href="tel:+5519996703725" style="color:var(--terracota)">(19) 99670-3725</a> <span style="font-size:12px;color:var(--cinza-texto)">(WhatsApp)</span></p>' +
+    '</div>';
+
   var corpo = '';
   if (_recupSucesso) {
     corpo =
-      '<div style="text-align:center;padding:32px 0;display:flex;flex-direction:column;align-items:center;gap:16px">' +
+      '<div style="text-align:center;padding:24px 0;display:flex;flex-direction:column;align-items:center;gap:16px">' +
         '<div style="width:64px;height:64px;background:var(--verde-bg);border-radius:50%;display:flex;align-items:center;justify-content:center">' + ic('check2') + '</div>' +
-        '<p style="font-size:16px;font-weight:600">Solicitação enviada!</p>' +
-        '<p style="font-size:14px;color:#555;max-width:280px;line-height:1.5">A secretaria foi notificada. Em breve você receberá sua nova senha pelo telefone ou pessoalmente.</p>' +
-        '<button class="btn btn-primary" id="recup-voltar-login">Voltar ao login</button>' +
+        '<p style="font-size:16px;font-weight:600">Solicitação anotada!</p>' +
+        '<p style="font-size:14px;color:#555;max-width:300px;line-height:1.5">Ligue ou mande mensagem para a secretaria informando seu nome e o utilizador <b>' + esc(_recupLogin) + '</b>. Eles irão redefinir sua senha.</p>' +
+        contato +
+        '<button class="btn btn-primary" style="width:100%;margin-top:8px" id="recup-voltar-login">' + ic('arrowLeft') + ' Voltar ao login</button>' +
+      '</div>';
+  } else if (semDados) {
+    corpo =
+      '<div class="stack">' +
+        '<div class="info-box" style="display:flex;align-items:flex-start;gap:10px">' +
+          ic('alert') +
+          '<p style="font-size:13px;line-height:1.5">Não foi possível verificar os utilizadores agora. Entre em contato diretamente com a secretaria para redefinir sua senha.</p>' +
+        '</div>' +
+        contato +
+        '<button class="btn" style="width:100%;margin-top:8px" id="recup-voltar">' + ic('arrowLeft') + ' Voltar ao login</button>' +
       '</div>';
   } else {
     corpo =
       '<div class="stack">' +
         '<div class="info-box" style="display:flex;align-items:flex-start;gap:10px">' +
           ic('alert') +
-          '<p style="font-size:13px;line-height:1.5">A redefinição de senha é feita pela secretaria da paróquia. Informe seu utilizador abaixo e, em seguida, entre em contato: <b>(19) 3654-1258</b> ou <b>(19) 99670-3725</b> (WhatsApp).</p>' +
+          '<p style="font-size:13px;line-height:1.5">Informe seu utilizador abaixo para registrar a solicitação e, em seguida, entre em contato com a secretaria.</p>' +
         '</div>' +
-        (_recupErro ? '<div class="erro-box">' + ic('alert') + ' ' + esc(_recupErro) + '</div>' : '') +
+        (_recupErro
+          ? '<div class="erro-box" style="margin-bottom:4px">' + ic('alert') + ' ' + esc(_recupErro) + '</div>' +
+            '<p style="font-size:13px;color:#555;margin-bottom:8px">Caso não se lembre do seu utilizador, entre em contato diretamente:</p>' +
+            contato
+          : '') +
         '<div class="campo">' +
           '<label>Seu utilizador</label>' +
           '<input id="recup-login" type="text" placeholder="Ex: maria" autocapitalize="none" autocorrect="off" value="' + esc(_recupLogin) + '" />' +
@@ -1640,7 +1663,12 @@ function ligarEventosRecuperacao() {
     var login = (document.getElementById('recup-login').value || '').trim().toLowerCase();
     if (!login) { _recupErro = 'Informe seu utilizador.'; render(); return; }
     var existe = (DADOS.usuarios || []).some(function (u) { return u.login.toLowerCase() === login; });
-    if (!existe) { _recupErro = 'Utilizador não encontrado. Verifique e tente novamente.'; render(); return; }
+    if (!existe) {
+      _recupErro = 'Utilizador "' + login + '" não encontrado. Verifique a escrita ou use os contatos abaixo.';
+      _recupLogin = login;
+      render();
+      return;
+    }
     _recupLogin = login;
     _recupErro = '';
     _recupSucesso = true;

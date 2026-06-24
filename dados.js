@@ -20,11 +20,13 @@ let DADOS = {
 async function carregarDadosDaNuvem() {
   try {
     let resUsers = await supabaseClient.from('usuarios').select('*');
+    if (resUsers.error) console.warn('Erro ao carregar usuarios:', resUsers.error.message);
     if (resUsers.data) {
       DADOS.usuarios = resUsers.data.map(u => ({
         id: String(u.id), nome: u.nome, login: u.login, senha: u.senha_hash, tipo: u.tipo_perfil
       }));
     }
+    if (!DADOS.usuarios.length) console.warn('Nenhum usuário carregado do banco.');
 
     let resTurmas = await supabaseClient.from('turmas').select('*');
     if (resTurmas.data) {
