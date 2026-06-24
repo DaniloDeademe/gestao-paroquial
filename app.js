@@ -8,6 +8,14 @@ let ABA = 'inicio';
 let VISAO = null;
 let QR_MODE = false;
 
+// Estado do formulário de inscrição
+let _inscPasso = 1;
+let _inscErro = '';
+let _inscDados = {};
+let _inscDependentes = [];
+let _inscPastorais = [];
+let _inscSucesso = false;
+
 // --------------------------------------------------------------------------
 // Ícones SVG (inline)
 // --------------------------------------------------------------------------
@@ -103,6 +111,7 @@ function render() {
   var app = document.getElementById('app');
 
   if (QR_MODE) { app.innerHTML = telaQR(); ligarEventosQR(); return; }
+  if (VISAO && VISAO.tipo === 'inscricao') { app.innerHTML = telaInscricao(); ligarEventosInscricao(); return; }
   if (!USUARIO) { app.innerHTML = telaLogin(); ligarEventosLogin(); return; }
 
   if (VISAO && VISAO.tipo === 'turma') { app.innerHTML = telaTurmaDetalhe(VISAO.id); ligarEventosApp(); return; }
@@ -128,9 +137,9 @@ let _erroLogin = '';
 function telaLogin() {
   var usuarios = DADOS.usuarios || [];
   var demoItens = usuarios.map(function (u) {
-    return '<button class="demo-item" data-login="' + esc(u.login) + '" data-senha="' + esc(u.senha) + '">' +
+    return '<button class="demo-item" data-login="' + esc(u.login) + '">' +
       '<div class="info"><p>' + esc(ROTULO_PERFIL[u.tipo]) + '</p>' +
-      '<p>utilizador: <span class="mono">' + esc(u.login) + '</span> · senha: <span class="mono">' + esc(u.senha) + '</span></p></div>' +
+      '<p>utilizador: <span class="mono">' + esc(u.login) + '</span></p></div>' +
       '<span class="preencher">Preencher</span></button>';
   }).join('');
 
@@ -160,6 +169,10 @@ function telaLogin() {
     '</details>' +
 
     '<div class="text-center"><button class="link-qr" id="btn-abrir-qr">' + ic('qr') + ' Ecrã de presença por QR Code</button></div>' +
+
+    '<div class="text-center" style="margin-top:12px">' +
+      '<button class="btn btn-primary btn-lg" id="btn-inscricao" style="width:100%">' + ic('userPlus') + ' Fazer inscrição na catequese</button>' +
+    '</div>' +
 
     '<div class="login-footer">Paróquia Santo Antônio · Santo Antônio do Jardim, SP</div>' +
   '</div></div>';
@@ -206,11 +219,18 @@ function ligarEventosLogin() {
   document.querySelectorAll('.demo-item').forEach(function (btn) {
     btn.onclick = function () {
       document.getElementById('in-login').value = btn.getAttribute('data-login');
-      document.getElementById('in-senha').value = btn.getAttribute('data-senha');
+      document.getElementById('in-senha').value = '';
       _erroLogin = '';
-      document.getElementById('btn-entrar').focus();
+      document.getElementById('in-senha').focus();
     };
   });
+
+  var btnInscricao = document.getElementById('btn-inscricao');
+  if (btnInscricao) btnInscricao.onclick = function () {
+    _inscPasso = 1; _inscDados = {}; _inscDependentes = []; _inscPastorais = []; _inscErro = ''; _inscSucesso = false;
+    VISAO = { tipo: 'inscricao' };
+    render();
+  };
 
   var btnQr = document.getElementById('btn-abrir-qr');
   if (btnQr) btnQr.onclick = function () { QR_MODE = true; render(); };
@@ -593,7 +613,10 @@ function telaApostilas() {
  * ========================================================================== */
 function telaMais() {
   var u = USUARIO;
+  var pendentes = (DADOS.paroquianos || []).filter(function (p) { return p.status === 'pendente'; }).length;
+  var badgePend = pendentes > 0 ? ' <span style="background:var(--vermelho);color:#fff;font-size:11px;font-weight:700;padding:1px 7px;border-radius:99px">' + pendentes + '</span>' : '';
   var itens = [
+    { id: 'inscricoes', label: 'Inscrições' + badgePend, icone: 'fileText', who: ['padre', 'escritorio'] },
     { id: 'catequistas', label: 'Catequistas', icone: 'grad', who: ['padre', 'escritorio'] },
     { id: 'catequizandos', label: 'Catequizandos', icone: 'users', who: ['padre', 'escritorio'] },
     { id: 'relatorios', label: 'Relatórios', icone: 'chart', who: ['padre'] },
@@ -623,12 +646,13 @@ function telaMais() {
  * PÁGINAS INTERNAS (acessadas via "Mais")
  * ========================================================================== */
 function telaPaginaInterna(pagina) {
-  var titulos = { catequistas: 'Catequistas', catequizandos: 'Catequizandos', relatorios: 'Relatórios', usuarios: 'Utilizadores' };
+  var titulos = { catequistas: 'Catequistas', catequizandos: 'Catequizandos', relatorios: 'Relatórios', usuarios: 'Utilizadores', inscricoes: 'Inscrições' };
   var corpo = '';
   if (pagina === 'relatorios') corpo = pgRelatorios();
   else if (pagina === 'catequistas') corpo = pgCatequistas();
   else if (pagina === 'catequizandos') corpo = pgCatequizandos();
   else if (pagina === 'usuarios') corpo = pgUsuarios();
+  else if (pagina === 'inscricoes') corpo = pgInscricoes();
   return header(titulos[pagina] || '', true) + '<main>' + corpo + '</main>';
 }
 
@@ -1111,6 +1135,10 @@ document.querySelectorAll('.pfj').forEach(function (grupo) {
 
   var bSair = document.getElementById('btn-sair');
   if (bSair) bSair.onclick = function () { USUARIO = null; ABA = 'inicio'; VISAO = null; render(); };
+
+  document.querySelectorAll('[data-par]').forEach(function (btn) {
+    btn.onclick = function () { modalParoquiano(btn.getAttribute('data-par')); };
+  });
 }
 
 // 4. FUNÇÃO PARA SALVAR PRESENÇAS NA NUVEM
@@ -1142,6 +1170,407 @@ async function salvarPresencasNaNuvem(alunosIds, dataEncontro, tipo, novosRegist
     console.error("Erro ao salvar presenças:", erro);
     return false;
   }
+}
+
+/* ==========================================================================
+ * INSCRIÇÃO — Tela pública multi-etapas
+ * ========================================================================== */
+function telaInscricao() {
+  if (_inscSucesso) return inscTelaSucesso();
+  var titulos = ['', 'Dados Pessoais', 'Contato e Endereço', 'Família', 'Sacramentos e Vínculos', 'Confirmação'];
+  var pct = Math.round((_inscPasso / 5) * 100);
+  var progresso =
+    '<div style="padding:0 16px 16px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+        '<p style="font-size:13px;font-weight:500;color:var(--terracota)">Passo ' + _inscPasso + ' de 5</p>' +
+        '<p style="font-size:12px;color:var(--cinza-texto)">' + titulos[_inscPasso] + '</p>' +
+      '</div>' +
+      '<div style="height:4px;background:#e5e7eb;border-radius:2px">' +
+        '<div style="height:4px;width:' + pct + '%;background:var(--terracota);border-radius:2px"></div>' +
+      '</div>' +
+    '</div>';
+  var corpo = '';
+  if (_inscPasso === 1) corpo = inscPasso1();
+  else if (_inscPasso === 2) corpo = inscPasso2();
+  else if (_inscPasso === 3) corpo = inscPasso3();
+  else if (_inscPasso === 4) corpo = inscPasso4();
+  else if (_inscPasso === 5) corpo = inscPasso5();
+  var btnVoltar = _inscPasso > 1
+    ? '<button class="btn" id="insc-voltar">' + ic('arrowLeft') + ' Voltar</button>'
+    : '<button class="btn" id="insc-cancelar">Cancelar</button>';
+  var btnAvancar = _inscPasso < 5
+    ? '<button class="btn btn-primary" id="insc-avancar">Próximo ' + ic('chevronRight') + '</button>'
+    : '<button class="btn btn-primary" id="insc-enviar">' + ic('check') + ' Enviar inscrição</button>';
+  return '<div style="min-height:100vh;background:var(--fundo)">' +
+    '<div style="background:#fff;padding:16px;border-bottom:1px solid var(--borda);display:flex;align-items:center;gap:12px">' +
+      '<img src="' + ICONE_URL + '" style="width:32px;height:32px" />' +
+      '<div><p style="font-size:14px;font-weight:600">Inscrição na Catequese</p>' +
+      '<p style="font-size:12px;color:var(--cinza-texto)">Paróquia Santo Antônio</p></div>' +
+    '</div>' +
+    progresso +
+    '<div style="padding:0 16px 100px">' +
+      (_inscErro ? '<div class="erro-box" style="margin-bottom:16px">' + ic('alert') + ' ' + esc(_inscErro) + '</div>' : '') +
+      corpo +
+    '</div>' +
+    '<div style="position:fixed;bottom:0;left:0;right:0;padding:12px 16px;background:#fff;border-top:1px solid var(--borda);display:flex;justify-content:space-between;align-items:center">' +
+      btnVoltar + btnAvancar +
+    '</div>' +
+  '</div>';
+}
+
+function inscTelaSucesso() {
+  return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px;text-align:center;gap:16px">' +
+    '<div style="width:72px;height:72px;background:var(--verde-bg);border-radius:50%;display:flex;align-items:center;justify-content:center">' + ic('check2') + '</div>' +
+    '<h1 class="serif" style="font-size:24px">Inscrição enviada!</h1>' +
+    '<p style="font-size:15px;color:#444;max-width:300px;line-height:1.6">Sua inscrição foi recebida com sucesso. A secretaria da paróquia irá analisá-la e entrará em contato.</p>' +
+    '<p style="font-size:13px;color:var(--cinza-texto)">Paróquia Santo Antônio · (19) 3654-1258</p>' +
+    '<button class="btn btn-primary" id="insc-nova">Nova inscrição</button>' +
+    '<button class="btn" id="insc-voltar-login">Voltar ao login</button>' +
+  '</div>';
+}
+
+function inscPasso1() {
+  var d = _inscDados;
+  var tipos = [['catequizando','Catequizando'],['catecumeno','Catecúmeno'],['catequista','Catequista'],['dizimista','Dizimista'],['nubente','Nubente'],['arrecadador','Arrecadador']];
+  var optTipos = tipos.map(function(t){ return '<option value="'+t[0]+'"'+(d.tipoCadastro===t[0]?' selected':'')+'>'+t[1]+'</option>'; }).join('');
+  var optEsc = ['','Fundamental incompleto','Fundamental completo','Médio incompleto','Médio completo','Superior incompleto','Superior completo','Pós-graduação'].map(function(e){ return '<option value="'+e+'"'+(d.escolaridade===e?' selected':'')+'>'+e+'</option>'; }).join('');
+  var optEc = ['','Solteiro(a)','Casado(a)','Divorciado(a)','Viúvo(a)','União estável'].map(function(e){ return '<option value="'+e+'"'+(d.estadoCivil===e?' selected':'')+'>'+e+'</option>'; }).join('');
+  return '<div class="stack">' +
+    '<div class="campo"><label>Tipo de cadastro <span style="color:var(--vermelho)">*</span></label><select id="i-tipo">'+optTipos+'</select></div>' +
+    '<div class="campo"><label>Nome completo <span style="color:var(--vermelho)">*</span></label><input id="i-nome" placeholder="Ex: João Pedro da Silva" value="'+esc(d.nomeCompleto||'')+'" /></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div class="campo"><label>CPF</label><input id="i-cpf" placeholder="000.000.000-00" value="'+esc(d.cpf||'')+'" /></div>' +
+      '<div class="campo"><label>RG</label><input id="i-rg" placeholder="00.000.000-0" value="'+esc(d.rg||'')+'" /></div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div class="campo"><label>Data de nascimento</label><input id="i-datanasc" type="date" value="'+esc(d.dataNascimento||'')+'" /></div>' +
+      '<div class="campo"><label>Sexo</label><select id="i-sexo"><option value="">—</option><option value="M"'+(d.sexo==='M'?' selected':'')+'>Masculino</option><option value="F"'+(d.sexo==='F'?' selected':'')+'>Feminino</option></select></div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 60px;gap:12px">' +
+      '<div class="campo"><label>Naturalidade</label><input id="i-natural" placeholder="Santo Antônio do Jardim" value="'+esc(d.naturalidade||'')+'" /></div>' +
+      '<div class="campo"><label>UF</label><input id="i-uf-nasc" maxlength="2" style="text-transform:uppercase" value="'+esc(d.ufNascimento||'')+'" /></div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div class="campo"><label>Estado civil</label><select id="i-estadocivil">'+optEc+'</select></div>' +
+      '<div class="campo"><label>Profissão</label><input id="i-prof" value="'+esc(d.profissao||'')+'" /></div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div class="campo"><label>Escolaridade</label><select id="i-esc">'+optEsc+'</select></div>' +
+      '<div class="campo"><label>Formação</label><input id="i-formacao" value="'+esc(d.formacao||'')+'" /></div>' +
+    '</div>' +
+  '</div>';
+}
+
+function inscPasso2() {
+  var d = _inscDados;
+  return '<div class="stack">' +
+    '<p style="font-size:13px;font-weight:600;color:var(--terracota)">Contatos</p>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div class="campo"><label>Celular / WhatsApp <span style="color:var(--vermelho)">*</span></label><input id="i-cel" type="tel" placeholder="(19) 9XXXX-XXXX" value="'+esc(d.telefoneCelular||'')+'" /></div>' +
+      '<div class="campo"><label>Tel. residencial</label><input id="i-resid" type="tel" value="'+esc(d.telefoneResidencial||'')+'" /></div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div class="campo"><label>Tel. de recado</label><input id="i-recado" type="tel" value="'+esc(d.telefoneRecado||'')+'" /></div>' +
+      '<div class="campo"><label>E-mail</label><input id="i-email" type="email" value="'+esc(d.email||'')+'" /></div>' +
+    '</div>' +
+    '<p style="font-size:13px;font-weight:600;color:var(--terracota);margin-top:8px">Endereço</p>' +
+    '<div style="display:grid;grid-template-columns:110px 1fr;gap:12px">' +
+      '<div class="campo"><label>CEP</label><input id="i-cep" maxlength="9" placeholder="00000-000" value="'+esc(d.cep||'')+'" /></div>' +
+      '<div class="campo"><label>Logradouro</label><input id="i-logr" value="'+esc(d.logradouro||'')+'" /></div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:80px 1fr;gap:12px">' +
+      '<div class="campo"><label>Número</label><input id="i-num" value="'+esc(d.numero||'')+'" /></div>' +
+      '<div class="campo"><label>Complemento</label><input id="i-comp" placeholder="Apto, Casa..." value="'+esc(d.complemento||'')+'" /></div>' +
+    '</div>' +
+    '<div class="campo"><label>Bairro</label><input id="i-bairro" value="'+esc(d.bairro||'')+'" /></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 60px;gap:12px">' +
+      '<div class="campo"><label>Cidade</label><input id="i-cidade" value="'+esc(d.cidade||'')+'" /></div>' +
+      '<div class="campo"><label>UF</label><input id="i-uf" maxlength="2" style="text-transform:uppercase" value="'+esc(d.uf||'')+'" /></div>' +
+    '</div>' +
+  '</div>';
+}
+
+function inscPasso3() {
+  var d = _inscDados;
+  var depRows = _inscDependentes.map(function(dep, i) {
+    return '<div style="display:grid;grid-template-columns:1fr 130px 110px 28px;gap:8px;align-items:center;margin-bottom:8px">' +
+      '<input placeholder="Nome" value="'+esc(dep.nome||'')+'" data-dep-nome="'+i+'" style="font-size:13px" />' +
+      '<input type="date" value="'+esc(dep.dataNasc||'')+'" data-dep-nasc="'+i+'" style="font-size:12px" />' +
+      '<input placeholder="Parentesco" value="'+esc(dep.parentesco||'')+'" data-dep-par="'+i+'" style="font-size:13px" />' +
+      '<button type="button" data-dep-del="'+i+'" style="color:var(--vermelho);background:none;border:none;cursor:pointer;font-size:20px;line-height:1">×</button>' +
+    '</div>';
+  }).join('');
+  return '<div class="stack">' +
+    '<p style="font-size:13px;font-weight:600;color:var(--terracota)">Filiação</p>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div class="campo"><label>Nome do pai</label><input id="i-pai" value="'+esc(d.nomePai||'')+'" /></div>' +
+      '<div class="campo"><label>Profissão do pai</label><input id="i-profpai" value="'+esc(d.profissaoPai||'')+'" /></div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div class="campo"><label>Nome da mãe</label><input id="i-mae" value="'+esc(d.nomeMae||'')+'" /></div>' +
+      '<div class="campo"><label>Profissão da mãe</label><input id="i-profmae" value="'+esc(d.profissaoMae||'')+'" /></div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:end">' +
+      '<div class="campo"><label>Pais casados na Igreja?</label><select id="i-casados"><option value="">—</option><option value="sim"'+(d.paisCasadosIgreja==='sim'?' selected':'')+'>Sim</option><option value="nao"'+(d.paisCasadosIgreja==='nao'?' selected':'')+'>Não</option></select></div>' +
+      '<div class="campo"><label>Paróquia do casamento</label><input id="i-parqcas" value="'+esc(d.paroquiaCasamento||'')+'" /></div>' +
+    '</div>' +
+    '<p style="font-size:13px;font-weight:600;color:var(--terracota);margin-top:8px">Cônjuge (se casado)</p>' +
+    '<div class="campo"><label>Nome do cônjuge</label><input id="i-conjuge" value="'+esc(d.nomeConjuge||'')+'" /></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div class="campo"><label>Nasc. cônjuge</label><input id="i-nascconj" type="date" value="'+esc(d.dataNascConjuge||'')+'" /></div>' +
+      '<div class="campo"><label>Data do matrimônio</label><input id="i-matrim" type="date" value="'+esc(d.dataMatrimonio||'')+'" /></div>' +
+    '</div>' +
+    '<p style="font-size:13px;font-weight:600;color:var(--terracota);margin-top:8px">Dependentes</p>' +
+    '<div id="dep-lista">'+depRows+'</div>' +
+    '<button type="button" id="insc-add-dep" class="btn btn-sm" style="width:100%">'+ic('plus')+' Adicionar dependente</button>' +
+  '</div>';
+}
+
+function inscPasso4() {
+  var d = _inscDados;
+  var anos = [2026,2027,2028,2029,2030,2031];
+  var etapasHtml = anos.map(function(ano) {
+    return '<div style="text-align:center">' +
+      '<label style="font-size:11px;display:block;margin-bottom:4px">'+ano+'</label>' +
+      '<input id="i-etapa-'+ano+'" style="width:100%;text-align:center;font-size:13px" value="'+esc((d.etapas&&d.etapas[ano])?d.etapas[ano]:'')+'" placeholder="—" />' +
+    '</div>';
+  }).join('');
+  var pastRows = _inscPastorais.map(function(p, i) {
+    return '<div style="background:var(--fundo);border-radius:8px;padding:10px;margin-bottom:8px;border:1px solid var(--borda)">' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">' +
+        '<input placeholder="Realidade Eclesial" value="'+esc(p.realidade||'')+'" data-past-real="'+i+'" style="font-size:13px" />' +
+        '<input placeholder="Grupo/Descrição" value="'+esc(p.descricao||'')+'" data-past-desc="'+i+'" style="font-size:13px" />' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">' +
+        '<input placeholder="Função" value="'+esc(p.funcao||'')+'" data-past-func="'+i+'" style="font-size:13px" />' +
+        '<input placeholder="Pastoral" value="'+esc(p.pastoral||'')+'" data-past-past="'+i+'" style="font-size:13px" />' +
+        '<input placeholder="Ministério" value="'+esc(p.ministerio||'')+'" data-past-min="'+i+'" style="font-size:13px" />' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;justify-content:space-between">' +
+        '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px">Início:</label><input type="date" value="'+esc(p.dataInicio||'')+'" data-past-data="'+i+'" style="font-size:12px" /></div>' +
+        '<button type="button" data-past-del="'+i+'" style="color:var(--vermelho);background:none;border:none;cursor:pointer;font-size:20px">×</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+  return '<div class="stack">' +
+    '<p style="font-size:13px;font-weight:600;color:var(--terracota)">Batismo</p>' +
+    '<label style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--fundo);border-radius:8px;border:1px solid var(--borda);cursor:pointer">' +
+      '<input type="checkbox" id="i-batizado" style="width:16px;height:16px;accent-color:var(--terracota)"'+(d.batizado?' checked':'')+' /> <span style="font-size:14px;font-weight:500">Batizado(a)</span>' +
+    '</label>' +
+    '<div id="i-batismo-campos" style="'+(d.batizado?'':'display:none')+'">' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+        '<div class="campo"><label>Data do batismo</label><input id="i-dtbat" type="date" value="'+esc(d.dataBatismo||'')+'" /></div>' +
+        '<div class="campo"><label>Paróquia</label><input id="i-parqbat" value="'+esc(d.paroquiaBatismo||'')+'" /></div>' +
+      '</div>' +
+      '<div class="campo"><label>(Arqui)Diocese</label><input id="i-diocese" value="'+esc(d.dioceseBatismo||'')+'" /></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">' +
+        '<div class="campo"><label>Livro</label><input id="i-livro" value="'+esc(d.livroBatismo||'')+'" /></div>' +
+        '<div class="campo"><label>Folha</label><input id="i-folha" value="'+esc(d.folhaBatismo||'')+'" /></div>' +
+        '<div class="campo"><label>Número</label><input id="i-numbat" value="'+esc(d.numeroBatismo||'')+'" /></div>' +
+      '</div>' +
+    '</div>' +
+    '<p style="font-size:13px;font-weight:600;color:var(--terracota);margin-top:8px">Vínculos Paroquiais</p>' +
+    '<div class="campo"><label>Comunidade</label><input id="i-comunidade" value="'+esc(d.comunidade||'')+'" /></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div class="campo"><label>Código do catequista</label><input id="i-codcat" value="'+esc(d.codigoCatequista||'')+'" /></div>' +
+      '<div class="campo"><label>Código dizimista</label><input id="i-coddiz" value="'+esc(d.codigoDizimista||'')+'" /></div>' +
+    '</div>' +
+    '<label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="i-dizimista" style="width:16px;height:16px;accent-color:var(--terracota)"'+(d.dizimista?' checked':'')+' /> <span style="font-size:14px">Dizimista</span></label>' +
+    '<p style="font-size:13px;font-weight:600;color:var(--terracota);margin-top:8px">Etapas da Catequese</p>' +
+    '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px">'+etapasHtml+'</div>' +
+    '<p style="font-size:13px;font-weight:600;color:var(--terracota);margin-top:16px">Grupos e Pastorais</p>' +
+    '<div id="past-lista">'+pastRows+'</div>' +
+    '<button type="button" id="insc-add-past" class="btn btn-sm" style="width:100%">'+ic('plus')+' Adicionar pastoral</button>' +
+  '</div>';
+}
+
+function inscPasso5() {
+  var d = _inscDados;
+  return '<div class="stack">' +
+    '<div class="card card-pad">' +
+      '<p style="font-size:13px;font-weight:600;margin-bottom:10px">Revisão</p>' +
+      '<p style="font-size:14px"><b>Nome:</b> '+esc(d.nomeCompleto||'—')+'</p>' +
+      '<p style="font-size:14px"><b>Tipo:</b> '+esc(d.tipoCadastro||'—')+'</p>' +
+      '<p style="font-size:14px"><b>Nascimento:</b> '+fmtData(d.dataNascimento||'')+'</p>' +
+      '<p style="font-size:14px"><b>Celular:</b> '+esc(d.telefoneCelular||'—')+'</p>' +
+      '<p style="font-size:14px"><b>E-mail:</b> '+esc(d.email||'—')+'</p>' +
+    '</div>' +
+    '<div style="background:#fff;border:1px solid var(--borda);border-radius:12px;padding:16px">' +
+      '<p style="font-size:13px;font-weight:600;margin-bottom:8px">Termo de Responsabilidade</p>' +
+      '<p style="font-size:13px;color:#555;line-height:1.6;font-style:italic">"Catequese é processo permanente de educação na fé. Ao inscrever seu(sua) filho(a) na catequese, você está se comprometendo a fazer parte deste processo, ou seja, ter um compromisso de participar com seu(sua) filho(a) das atividades da Paróquia (Missa das crianças e reuniões). É responsabilidade sua a educação religiosa de seu(sua) filho(a) pois, não se deve esquecer que \'os pais são os primeiros catequistas dos filhos\'. Sem o seu compromisso e apoio, o trabalho catequético será em vão."</p>' +
+    '</div>' +
+    '<label style="display:flex;align-items:flex-start;gap:12px;padding:16px;background:var(--verde-bg);border-radius:12px;border:1px solid #86efac;cursor:pointer">' +
+      '<input type="checkbox" id="i-termo" style="width:20px;height:20px;min-width:20px;accent-color:var(--verde);margin-top:2px"'+(d.termoResponsabilidade?' checked':'')+' />' +
+      '<span style="font-size:14px">Li e concordo com o Termo de Responsabilidade, comprometendo-me a participar das atividades da catequese.</span>' +
+    '</label>' +
+    '<p style="font-size:12px;color:var(--cinza-texto);text-align:center">Data da inscrição: '+new Date().toLocaleDateString('pt-BR')+'</p>' +
+  '</div>';
+}
+
+function inscColetarPasso() {
+  _inscErro = '';
+  function val(id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; }
+  function chk(id) { var el = document.getElementById(id); return el ? el.checked : false; }
+  if (_inscPasso === 1) {
+    if (!val('i-tipo')) { _inscErro = 'Selecione o tipo de cadastro.'; render(); return false; }
+    if (!val('i-nome')) { _inscErro = 'O nome completo é obrigatório.'; render(); return false; }
+    Object.assign(_inscDados, { tipoCadastro: val('i-tipo'), nomeCompleto: val('i-nome'), cpf: val('i-cpf'), rg: val('i-rg'), dataNascimento: val('i-datanasc'), sexo: val('i-sexo'), naturalidade: val('i-natural'), ufNascimento: val('i-uf-nasc').toUpperCase(), estadoCivil: val('i-estadocivil'), profissao: val('i-prof'), escolaridade: val('i-esc'), formacao: val('i-formacao') });
+  } else if (_inscPasso === 2) {
+    if (!val('i-cel')) { _inscErro = 'O celular/WhatsApp é obrigatório.'; render(); return false; }
+    Object.assign(_inscDados, { telefoneCelular: val('i-cel'), telefoneResidencial: val('i-resid'), telefoneRecado: val('i-recado'), email: val('i-email'), cep: val('i-cep'), logradouro: val('i-logr'), numero: val('i-num'), complemento: val('i-comp'), bairro: val('i-bairro'), cidade: val('i-cidade'), uf: val('i-uf').toUpperCase() });
+  } else if (_inscPasso === 3) {
+    Object.assign(_inscDados, { nomePai: val('i-pai'), profissaoPai: val('i-profpai'), nomeMae: val('i-mae'), profissaoMae: val('i-profmae'), paisCasadosIgreja: val('i-casados'), paroquiaCasamento: val('i-parqcas'), nomeConjuge: val('i-conjuge'), dataNascConjuge: val('i-nascconj'), dataMatrimonio: val('i-matrim') });
+    document.querySelectorAll('[data-dep-nome]').forEach(function(el){ var i=parseInt(el.getAttribute('data-dep-nome')); if(_inscDependentes[i]) _inscDependentes[i].nome=el.value; });
+    document.querySelectorAll('[data-dep-nasc]').forEach(function(el){ var i=parseInt(el.getAttribute('data-dep-nasc')); if(_inscDependentes[i]) _inscDependentes[i].dataNasc=el.value; });
+    document.querySelectorAll('[data-dep-par]').forEach(function(el){ var i=parseInt(el.getAttribute('data-dep-par')); if(_inscDependentes[i]) _inscDependentes[i].parentesco=el.value; });
+  } else if (_inscPasso === 4) {
+    var etapas = {};
+    [2026,2027,2028,2029,2030,2031].forEach(function(a){ var v=val('i-etapa-'+a); if(v) etapas[a]=v; });
+    document.querySelectorAll('[data-past-real]').forEach(function(el){ var i=parseInt(el.getAttribute('data-past-real')); if(_inscPastorais[i]) _inscPastorais[i].realidade=el.value; });
+    document.querySelectorAll('[data-past-desc]').forEach(function(el){ var i=parseInt(el.getAttribute('data-past-desc')); if(_inscPastorais[i]) _inscPastorais[i].descricao=el.value; });
+    document.querySelectorAll('[data-past-func]').forEach(function(el){ var i=parseInt(el.getAttribute('data-past-func')); if(_inscPastorais[i]) _inscPastorais[i].funcao=el.value; });
+    document.querySelectorAll('[data-past-past]').forEach(function(el){ var i=parseInt(el.getAttribute('data-past-past')); if(_inscPastorais[i]) _inscPastorais[i].pastoral=el.value; });
+    document.querySelectorAll('[data-past-min]').forEach(function(el){ var i=parseInt(el.getAttribute('data-past-min')); if(_inscPastorais[i]) _inscPastorais[i].ministerio=el.value; });
+    document.querySelectorAll('[data-past-data]').forEach(function(el){ var i=parseInt(el.getAttribute('data-past-data')); if(_inscPastorais[i]) _inscPastorais[i].dataInicio=el.value; });
+    Object.assign(_inscDados, { batizado: chk('i-batizado'), dataBatismo: val('i-dtbat'), paroquiaBatismo: val('i-parqbat'), dioceseBatismo: val('i-diocese'), livroBatismo: val('i-livro'), folhaBatismo: val('i-folha'), numeroBatismo: val('i-numbat'), comunidade: val('i-comunidade'), codigoCatequista: val('i-codcat'), dizimista: chk('i-dizimista'), codigoDizimista: val('i-coddiz'), etapas: etapas });
+  } else if (_inscPasso === 5) {
+    _inscDados.termoResponsabilidade = chk('i-termo');
+  }
+  return true;
+}
+
+function ligarEventosInscricao() {
+  var btnAv = document.getElementById('insc-avancar');
+  if (btnAv) btnAv.onclick = function() {
+    if (!inscColetarPasso()) return;
+    _inscPasso++; _inscErro = ''; render(); window.scrollTo(0,0);
+  };
+  var btnVolt = document.getElementById('insc-voltar');
+  if (btnVolt) btnVolt.onclick = function() {
+    inscColetarPasso();
+    _inscPasso--; _inscErro = ''; render(); window.scrollTo(0,0);
+  };
+  var btnCanc = document.getElementById('insc-cancelar');
+  if (btnCanc) btnCanc.onclick = function() {
+    VISAO = null; _inscPasso = 1; _inscDados = {}; _inscDependentes = []; _inscPastorais = []; _inscErro = ''; render();
+  };
+  var btnEnv = document.getElementById('insc-enviar');
+  if (btnEnv) btnEnv.onclick = async function() {
+    if (!inscColetarPasso()) return;
+    if (!_inscDados.termoResponsabilidade) { _inscErro = 'Você precisa aceitar o Termo de Responsabilidade para continuar.'; render(); return; }
+    btnEnv.disabled = true; btnEnv.textContent = 'Enviando...';
+    var ok = await salvarInscricao(Object.assign({}, _inscDados, { dependentes: _inscDependentes, pastorais: _inscPastorais }));
+    if (ok) { _inscSucesso = true; render(); }
+    else { _inscErro = 'Erro ao enviar. Verifique sua conexão e tente novamente.'; render(); }
+  };
+  var btnAddDep = document.getElementById('insc-add-dep');
+  if (btnAddDep) btnAddDep.onclick = function() { inscColetarPasso(); _inscDependentes.push({nome:'',dataNasc:'',parentesco:''}); render(); };
+  document.querySelectorAll('[data-dep-del]').forEach(function(btn) {
+    btn.onclick = function() { inscColetarPasso(); _inscDependentes.splice(parseInt(btn.getAttribute('data-dep-del')),1); render(); };
+  });
+  var btnAddPast = document.getElementById('insc-add-past');
+  if (btnAddPast) btnAddPast.onclick = function() { inscColetarPasso(); _inscPastorais.push({realidade:'',descricao:'',funcao:'',ministerio:'',dataInicio:'',pastoral:''}); render(); };
+  document.querySelectorAll('[data-past-del]').forEach(function(btn) {
+    btn.onclick = function() { inscColetarPasso(); _inscPastorais.splice(parseInt(btn.getAttribute('data-past-del')),1); render(); };
+  });
+  var chkBat = document.getElementById('i-batizado');
+  if (chkBat) chkBat.onchange = function() { var c = document.getElementById('i-batismo-campos'); if(c) c.style.display = chkBat.checked ? '' : 'none'; };
+  var btnNova = document.getElementById('insc-nova');
+  if (btnNova) btnNova.onclick = function() { _inscPasso=1; _inscDados={}; _inscDependentes=[]; _inscPastorais=[]; _inscErro=''; _inscSucesso=false; render(); };
+  var btnLoginRet = document.getElementById('insc-voltar-login');
+  if (btnLoginRet) btnLoginRet.onclick = function() { VISAO=null; _inscPasso=1; _inscDados={}; _inscDependentes=[]; _inscPastorais=[]; _inscErro=''; _inscSucesso=false; render(); };
+}
+
+/* ==========================================================================
+ * PAINEL DE INSCRIÇÕES — Admin (Pároco / Escritório)
+ * ========================================================================== */
+function pgInscricoes() {
+  var lista = DADOS.paroquianos || [];
+  var pend = lista.filter(function(p){ return p.status==='pendente'; }).length;
+  var aprov = lista.filter(function(p){ return p.status==='aprovado'; }).length;
+  var rej = lista.filter(function(p){ return p.status==='rejeitado'; }).length;
+  var resumo =
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">' +
+      '<div class="card card-pad" style="text-align:center"><p style="font-size:22px;font-weight:700;color:var(--amarelo)">'+pend+'</p><p style="font-size:12px;color:var(--cinza-texto)">Pendentes</p></div>' +
+      '<div class="card card-pad" style="text-align:center"><p style="font-size:22px;font-weight:700;color:var(--verde)">'+aprov+'</p><p style="font-size:12px;color:var(--cinza-texto)">Aprovados</p></div>' +
+      '<div class="card card-pad" style="text-align:center"><p style="font-size:22px;font-weight:700;color:var(--vermelho)">'+rej+'</p><p style="font-size:12px;color:var(--cinza-texto)">Rejeitados</p></div>' +
+    '</div>';
+  if (!lista.length) {
+    return resumo + '<div class="card card-pad" style="text-align:center;color:var(--cinza-texto)">'+ic('fileText')+'<p style="margin-top:8px">Nenhuma inscrição recebida ainda.</p></div>';
+  }
+  var itens = lista.map(function(p) {
+    var cor = p.status==='aprovado' ? 'pill-success' : p.status==='rejeitado' ? 'pill-danger' : 'pill-neutral';
+    var ico = p.status==='aprovado' ? 'check2' : p.status==='rejeitado' ? 'xCircle' : 'clock';
+    var label = p.status==='aprovado' ? 'Aprovado' : p.status==='rejeitado' ? 'Rejeitado' : 'Pendente';
+    return '<button class="item-lista" data-par="'+p.id+'" style="border-radius:0">' +
+      '<div class="avatar cinza" style="width:36px;height:36px">'+esc(iniciais(p.nomeCompleto))+'</div>' +
+      '<div class="corpo"><p class="t">'+esc(p.nomeCompleto)+'</p>' +
+        '<p class="s">'+esc(p.tipoCadastro||'—')+' · '+fmtData(p.dataInscricao||'')+'</p></div>' +
+      '<span class="pill '+cor+'">'+ic(ico)+' '+label+'</span>' +
+    '</button>';
+  }).join('');
+  return resumo + '<div class="card card-lista" style="overflow:hidden">'+itens+'</div>';
+}
+
+function modalParoquiano(id) {
+  var p = (DADOS.paroquianos||[]).find(function(x){ return x.id===String(id); });
+  if (!p) return;
+  function linha(label, valor) { return valor ? '<p style="font-size:13px;margin-bottom:6px"><span style="color:var(--cinza-texto);font-size:11px;text-transform:uppercase;display:block">'+label+'</span>'+esc(String(valor))+'</p>' : ''; }
+  var statusLabel = p.status==='aprovado'?'Aprovado':p.status==='rejeitado'?'Rejeitado':'Pendente';
+  var statusCor = p.status==='aprovado'?'var(--verde)':p.status==='rejeitado'?'var(--vermelho)':'var(--amarelo)';
+  var camposAcao = p.status==='pendente'
+    ? '<div class="campo" style="margin-top:12px"><label>Observação (opcional)</label><textarea id="par-obs" rows="2" style="width:100%;padding:8px;border:1px solid var(--borda);border-radius:8px;font-size:14px;font-family:inherit;resize:vertical"></textarea></div>' +
+      '<div style="display:flex;gap:8px;margin-top:12px">' +
+        '<button class="btn btn-primary" id="par-aprovar" style="flex:1">'+ic('check')+' Aprovar</button>' +
+        '<button class="btn" id="par-rejeitar" style="flex:1;color:var(--vermelho);border-color:var(--vermelho)">'+ic('x')+' Rejeitar</button>' +
+      '</div>'
+    : '<p style="margin-top:12px;font-size:13px">Status: <b style="color:'+statusCor+'">'+statusLabel+'</b>' +
+        (p.aprovadoPor ? ' por '+esc(p.aprovadoPor) : '') +
+        (p.dataAprovacao ? ' em '+fmtData(p.dataAprovacao.slice(0,10)) : '') + '</p>' +
+        (p.observacaoAprovacao ? '<p style="font-size:13px;font-style:italic;color:#666;margin-top:4px">"'+esc(p.observacaoAprovacao)+'"</p>' : '') +
+        (p.status!=='aprovado' ? '<button class="btn btn-primary" id="par-reaprovar" style="margin-top:12px;width:100%">'+ic('check')+' Aprovar agora</button>' : '');
+  var corpo =
+    linha('Tipo de cadastro', p.tipoCadastro) +
+    linha('Data de nascimento', fmtData(p.dataNascimento||'')) +
+    linha('Sexo', p.sexo==='M'?'Masculino':p.sexo==='F'?'Feminino':null) +
+    linha('CPF', p.cpf) + linha('RG', p.rg) +
+    linha('Naturalidade', p.naturalidade&&p.ufNascimento ? p.naturalidade+' / '+p.ufNascimento : (p.naturalidade||p.ufNascimento)) +
+    linha('Estado civil', p.estadoCivil) + linha('Profissão', p.profissao) +
+    '<hr style="border:none;border-top:1px solid var(--borda);margin:10px 0" />' +
+    linha('Celular', p.telefoneCelular) + linha('E-mail', p.email) +
+    linha('Endereço', [p.logradouro, p.numero, p.complemento].filter(Boolean).join(', ')) +
+    linha('Bairro', p.bairro) + linha('Cidade/UF', [p.cidade, p.uf].filter(Boolean).join(' / ')) +
+    '<hr style="border:none;border-top:1px solid var(--borda);margin:10px 0" />' +
+    linha('Pai', [p.nomePai, p.profissaoPai].filter(Boolean).join(' — ')) +
+    linha('Mãe', [p.nomeMae, p.profissaoMae].filter(Boolean).join(' — ')) +
+    linha('Cônjuge', p.nomeConjuge) +
+    linha('Batizado', p.batizado ? 'Sim'+(p.dataBatismo?' — '+fmtData(p.dataBatismo):'') : null) +
+    linha('Paróquia de batismo', p.paroquiaBatismo) +
+    linha('Comunidade', p.comunidade) +
+    linha('Termo assinado', p.termoResponsabilidade ? 'Sim' : 'Não') +
+    (p.dependentes&&p.dependentes.length ? '<p style="font-size:11px;text-transform:uppercase;color:var(--cinza-texto);margin-top:8px">Dependentes</p>' + p.dependentes.map(function(d){ return '<p style="font-size:13px">• '+esc(d.nome)+(d.parentesco?' ('+d.parentesco+')':'')+(d.dataNasc?' — '+fmtData(d.dataNasc):'')+'</p>'; }).join('') : '') +
+    camposAcao;
+  abrirModal(p.nomeCompleto, corpo);
+  var btnApr = document.getElementById('par-aprovar');
+  var btnRej = document.getElementById('par-rejeitar');
+  var btnReapr = document.getElementById('par-reaprovar');
+  if (btnApr) btnApr.onclick = async function() {
+    var obs = document.getElementById('par-obs') ? document.getElementById('par-obs').value.trim() : '';
+    btnApr.disabled = true;
+    await atualizarStatusParoquiano(id, 'aprovado', obs);
+    fecharModal();
+  };
+  if (btnRej) btnRej.onclick = async function() {
+    var obs = document.getElementById('par-obs') ? document.getElementById('par-obs').value.trim() : '';
+    btnRej.disabled = true;
+    await atualizarStatusParoquiano(id, 'rejeitado', obs);
+    fecharModal();
+  };
+  if (btnReapr) btnReapr.onclick = async function() {
+    btnReapr.disabled = true;
+    await atualizarStatusParoquiano(id, 'aprovado', '');
+    fecharModal();
+  };
 }
 
 /* ==========================================================================

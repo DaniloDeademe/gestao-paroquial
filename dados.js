@@ -13,7 +13,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let DADOS = {
   turmas: [], catequistas: [], catequizandos: [], presencas: [], eventos: [], usuarios: [],
-  apostilas: []
+  apostilas: [], paroquianos: []
 };
 
 // 2. FUNÇÃO PARA CARREGAR DADOS DA NUVEM
@@ -62,12 +62,16 @@ async function carregarDadosDaNuvem() {
       }));
     }
 
-    // Busca das Apostilas
     let resApostilas = await supabaseClient.from('apostilas').select('*');
     if (resApostilas.data) {
       DADOS.apostilas = resApostilas.data.map(ap => ({
         id: String(ap.id), titulo: ap.titulo, nivel: ap.nivel, capitulo: ap.capitulo, url: ap.arquivo_url
       }));
+    }
+
+    let resPar = await supabaseClient.from('paroquianos').select('*').order('created_at', { ascending: false });
+    if (resPar.data) {
+      DADOS.paroquianos = resPar.data.map(mapParoquiano);
     }
 
     concluirCarregamento();
@@ -139,6 +143,160 @@ async function uploadApostila(arquivo, titulo, nivel, capitulo) {
   } catch (erro) {
     console.error("Erro no upload:", erro);
     alert("Ocorreu um erro ao enviar a apostila.");
+    return false;
+  }
+}
+
+// 4. MAPEAMENTO DE PAROQUIANO (snake_case → camelCase)
+function mapParoquiano(p) {
+  return {
+    id: String(p.id),
+    tipoCadastro: p.tipo_cadastro,
+    nomeCompleto: p.nome_completo,
+    cpf: p.cpf,
+    rg: p.rg,
+    dataNascimento: p.data_nascimento,
+    sexo: p.sexo,
+    naturalidade: p.naturalidade,
+    ufNascimento: p.uf_nascimento,
+    estadoCivil: p.estado_civil,
+    profissao: p.profissao,
+    escolaridade: p.escolaridade,
+    formacao: p.formacao,
+    telefoneCelular: p.telefone_celular,
+    telefoneResidencial: p.telefone_residencial,
+    telefoneRecado: p.telefone_recado,
+    email: p.email,
+    cep: p.cep,
+    logradouro: p.logradouro,
+    numero: p.numero,
+    complemento: p.complemento,
+    bairro: p.bairro,
+    cidade: p.cidade,
+    uf: p.uf,
+    nomePai: p.nome_pai,
+    profissaoPai: p.profissao_pai,
+    nomeMae: p.nome_mae,
+    profissaoMae: p.profissao_mae,
+    paisCasadosIgreja: p.pais_casados_igreja,
+    paroquiaCasamento: p.paroquia_casamento,
+    nomeConjuge: p.nome_conjuge,
+    dataNascConjuge: p.data_nasc_conjuge,
+    dataMatrimonio: p.data_matrimonio,
+    dependentes: p.dependentes || [],
+    batizado: p.batizado,
+    dataBatismo: p.data_batismo,
+    paroquiaBatismo: p.paroquia_batismo,
+    dioceseBatismo: p.diocese_batismo,
+    livroBatismo: p.livro_batismo,
+    folhaBatismo: p.folha_batismo,
+    numeroBatismo: p.numero_batismo,
+    comunidade: p.comunidade,
+    dataInscricao: p.data_inscricao,
+    codigoCatequista: p.codigo_catequista,
+    dizimista: p.dizimista,
+    codigoDizimista: p.codigo_dizimista,
+    etapas: p.etapas || {},
+    pastorais: p.pastorais || [],
+    termoResponsabilidade: p.termo_responsabilidade,
+    status: p.status || 'pendente',
+    observacaoAprovacao: p.observacao_aprovacao,
+    dataAprovacao: p.data_aprovacao,
+    aprovadoPor: p.aprovado_por,
+    criadoEm: p.created_at
+  };
+}
+
+// 5. SALVAR NOVA INSCRIÇÃO
+async function salvarInscricao(dados) {
+  try {
+    let { data, error } = await supabaseClient.from('paroquianos').insert([{
+      tipo_cadastro: dados.tipoCadastro,
+      nome_completo: dados.nomeCompleto,
+      cpf: dados.cpf || null,
+      rg: dados.rg || null,
+      data_nascimento: dados.dataNascimento || null,
+      sexo: dados.sexo || null,
+      naturalidade: dados.naturalidade || null,
+      uf_nascimento: dados.ufNascimento || null,
+      estado_civil: dados.estadoCivil || null,
+      profissao: dados.profissao || null,
+      escolaridade: dados.escolaridade || null,
+      formacao: dados.formacao || null,
+      telefone_celular: dados.telefoneCelular || null,
+      telefone_residencial: dados.telefoneResidencial || null,
+      telefone_recado: dados.telefoneRecado || null,
+      email: dados.email || null,
+      cep: dados.cep || null,
+      logradouro: dados.logradouro || null,
+      numero: dados.numero || null,
+      complemento: dados.complemento || null,
+      bairro: dados.bairro || null,
+      cidade: dados.cidade || null,
+      uf: dados.uf || null,
+      nome_pai: dados.nomePai || null,
+      profissao_pai: dados.profissaoPai || null,
+      nome_mae: dados.nomeMae || null,
+      profissao_mae: dados.profissaoMae || null,
+      pais_casados_igreja: dados.paisCasadosIgreja === 'sim',
+      paroquia_casamento: dados.paroquiaCasamento || null,
+      nome_conjuge: dados.nomeConjuge || null,
+      data_nasc_conjuge: dados.dataNascConjuge || null,
+      data_matrimonio: dados.dataMatrimonio || null,
+      dependentes: dados.dependentes || [],
+      batizado: dados.batizado || false,
+      data_batismo: dados.dataBatismo || null,
+      paroquia_batismo: dados.paroquiaBatismo || null,
+      diocese_batismo: dados.dioceseBatismo || null,
+      livro_batismo: dados.livroBatismo || null,
+      folha_batismo: dados.folhaBatismo || null,
+      numero_batismo: dados.numeroBatismo || null,
+      comunidade: dados.comunidade || null,
+      data_inscricao: new Date().toISOString().slice(0, 10),
+      codigo_catequista: dados.codigoCatequista || null,
+      dizimista: dados.dizimista || false,
+      codigo_dizimista: dados.codigoDizimista || null,
+      etapas: dados.etapas || {},
+      pastorais: dados.pastorais || [],
+      termo_responsabilidade: dados.termoResponsabilidade || false,
+      status: 'pendente'
+    }]).select();
+    if (error) throw error;
+    if (data && data.length > 0) {
+      DADOS.paroquianos = [mapParoquiano(data[0])].concat(DADOS.paroquianos);
+    }
+    return true;
+  } catch (erro) {
+    console.error('Erro ao salvar inscrição:', erro);
+    return false;
+  }
+}
+
+// 6. APROVAR / REJEITAR INSCRIÇÃO
+async function atualizarStatusParoquiano(id, status, observacao) {
+  try {
+    let { error } = await supabaseClient.from('paroquianos').update({
+      status: status,
+      observacao_aprovacao: observacao || null,
+      data_aprovacao: new Date().toISOString(),
+      aprovado_por: USUARIO ? USUARIO.nome : null
+    }).eq('id', id);
+    if (error) throw error;
+    DADOS.paroquianos = DADOS.paroquianos.map(function (p) {
+      if (p.id === String(id)) {
+        return Object.assign({}, p, {
+          status: status,
+          observacaoAprovacao: observacao || null,
+          dataAprovacao: new Date().toISOString(),
+          aprovadoPor: USUARIO ? USUARIO.nome : null
+        });
+      }
+      return p;
+    });
+    render();
+    return true;
+  } catch (erro) {
+    console.error('Erro ao atualizar inscrição:', erro);
     return false;
   }
 }
