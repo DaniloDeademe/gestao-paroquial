@@ -771,7 +771,7 @@ function pgUsuarios() {
           '<p class="muted">utilizador: <span class="mono">' + esc(r.login) + '</span></p>' +
           '<p class="muted">' + (r.data ? fmtData(r.data.slice(0,10)) + ' às ' + r.data.slice(11,16) : '—') + '</p>' +
         '</div>' +
-        '<button class="btn btn-primary btn-sm" data-resolver-recup="' + r.id + '">' + ic('check') + ' Resolver</button>' +
+        '<button class="btn btn-primary btn-sm" data-resolver-recup="' + r.id + '" data-login-recup="' + esc(r.login) + '">' + ic('key') + ' Redefinir senha</button>' +
       '</div>';
     }).join('');
     var listaRes = resolvidas.map(function (r) {
@@ -1171,9 +1171,12 @@ function ligarEventosApp() {
   });
 
   document.querySelectorAll('[data-resolver-recup]').forEach(function (b) {
-    b.onclick = async function () {
-      b.disabled = true;
-      await resolverRecuperacao(b.getAttribute('data-resolver-recup'));
+    b.onclick = function () {
+      var recuperacaoId = b.getAttribute('data-resolver-recup');
+      var login = b.getAttribute('data-login-recup');
+      var u = (DADOS.usuarios || []).find(function (x) { return x.login === login; });
+      if (!u) { alert('Utilizador "' + login + '" não encontrado.'); return; }
+      modalRedefinirSenha(u.id, recuperacaoId);
     };
   });
 
@@ -1730,7 +1733,7 @@ function ligarEventosRecuperacao() {
 /* ==========================================================================
  * MODAL — Redefinir senha (admin)
  * ========================================================================== */
-function modalRedefinirSenha(id) {
+function modalRedefinirSenha(id, recuperacaoId) {
   var u = (DADOS.usuarios || []).find(function (x) { return x.id === String(id); });
   if (!u) return;
   var corpo =
@@ -1772,8 +1775,9 @@ function modalRedefinirSenha(id) {
     btn.disabled = true; btn.textContent = 'Salvando...';
     var ok = await atualizarSenhaUsuario(id, nova);
     if (ok) {
+      if (recuperacaoId) await resolverRecuperacao(recuperacaoId);
       fecharModal();
-      abrirModal('Senha redefinida', '<div style="text-align:center;padding:16px 0"><div style="font-size:48px">✓</div><p style="margin-top:8px">A senha de <b>' + esc(u.nome) + '</b> foi atualizada com sucesso.</p></div>');
+      abrirModal('Senha redefinida', '<div style="text-align:center;padding:16px 0"><div style="font-size:48px">✓</div><p style="margin-top:8px">A senha de <b>' + esc(u.nome) + '</b> foi atualizada com sucesso.</p>' + (recuperacaoId ? '<p style="font-size:13px;color:var(--cinza-texto);margin-top:8px">Solicitação de recuperação marcada como resolvida.</p>' : '') + '</div>');
     } else {
       btn.disabled = false; btn.innerHTML = ic('key') + ' Salvar nova senha';
       erroEl.innerHTML = '<div class="erro-box">' + ic('alert') + ' Erro ao salvar. Verifique sua conexão.</div>';
