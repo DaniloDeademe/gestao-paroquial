@@ -272,7 +272,25 @@ async function salvarInscricao(dados) {
   }
 }
 
-// 6. APROVAR / REJEITAR INSCRIÇÃO
+// 6. REDEFINIR SENHA DE USUÁRIO
+async function atualizarSenhaUsuario(id, novaSenha) {
+  try {
+    let { error } = await supabaseClient
+      .from('usuarios')
+      .update({ senha_hash: novaSenha })
+      .eq('id', id);
+    if (error) throw error;
+    DADOS.usuarios = DADOS.usuarios.map(function (u) {
+      return u.id === String(id) ? Object.assign({}, u, { senha: novaSenha }) : u;
+    });
+    return true;
+  } catch (erro) {
+    console.error('Erro ao redefinir senha:', erro);
+    return false;
+  }
+}
+
+// 7. APROVAR / REJEITAR INSCRIÇÃO
 async function atualizarStatusParoquiano(id, status, observacao) {
   try {
     let { error } = await supabaseClient.from('paroquianos').update({

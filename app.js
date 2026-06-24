@@ -10,6 +10,11 @@ let QR_MODE = false;
 
 // Estado do formulário de inscrição
 let _inscPasso = 1;
+
+// Estado da recuperação de senha
+let _recupLogin = '';
+let _recupErro = '';
+let _recupSucesso = false;
 let _inscErro = '';
 let _inscDados = {};
 let _inscDependentes = [];
@@ -112,6 +117,7 @@ function render() {
 
   if (QR_MODE) { app.innerHTML = telaQR(); ligarEventosQR(); return; }
   if (VISAO && VISAO.tipo === 'inscricao') { app.innerHTML = telaInscricao(); ligarEventosInscricao(); return; }
+  if (VISAO && VISAO.tipo === 'recuperacao') { app.innerHTML = telaRecuperacaoSenha(); ligarEventosRecuperacao(); return; }
   if (!USUARIO) { app.innerHTML = telaLogin(); ligarEventosLogin(); return; }
 
   if (VISAO && VISAO.tipo === 'turma') { app.innerHTML = telaTurmaDetalhe(VISAO.id); ligarEventosApp(); return; }
@@ -162,6 +168,10 @@ function telaLogin() {
       '</div></div>' +
 
     '<button class="btn btn-primary btn-lg" id="btn-entrar">' + ic('login') + ' Entrar</button>' +
+
+    '<div class="text-center" style="margin-top:4px">' +
+      '<button id="btn-esqueci-senha" style="background:none;border:none;color:var(--terracota);font-size:13px;cursor:pointer;text-decoration:underline">Esqueci minha senha</button>' +
+    '</div>' +
 
     '<details class="demo-acessos"><summary>' + ic('chevronRight') + ' Acessos de demonstração</summary>' +
       '<div class="stack" style="margin-top:12px">' + demoItens +
@@ -234,6 +244,13 @@ function ligarEventosLogin() {
 
   var btnQr = document.getElementById('btn-abrir-qr');
   if (btnQr) btnQr.onclick = function () { QR_MODE = true; render(); };
+
+  var btnEsqueci = document.getElementById('btn-esqueci-senha');
+  if (btnEsqueci) btnEsqueci.onclick = function () {
+    _recupLogin = ''; _recupErro = ''; _recupSucesso = false;
+    VISAO = { tipo: 'recuperacao' };
+    render();
+  };
 }
 
 /* ==========================================================================
@@ -749,6 +766,7 @@ function pgUsuarios() {
       '<p class="muted" style="margin-top:2px">utilizador: <span class="mono">' + esc(u.login) + '</span></p></div>' +
       '<div style="display:flex;align-items:center;gap:8px">' +
       '<span class="pill ' + (u.tipo === 'padre' ? 'pill-accent' : 'pill-neutral') + '">' + ROTULO_PERFIL[u.tipo] + '</span>' +
+      '<button class="icon-btn" data-redefinir-senha="' + u.id + '" title="Redefinir senha">' + ic('key') + '</button>' +
       '<button class="icon-btn" data-remover-usuario="' + u.id + '" title="Remover acesso">' + ic('trash') + '</button>' +
       '</div></div></div>';
   }).join('');
@@ -1107,6 +1125,10 @@ function ligarEventosApp() {
 
   document.querySelectorAll('[data-remover-usuario]').forEach(function (b) {
     b.onclick = function () { removerUsuario(b.getAttribute('data-remover-usuario')); };
+  });
+
+  document.querySelectorAll('[data-redefinir-senha]').forEach(function (b) {
+    b.onclick = function () { modalRedefinirSenha(b.getAttribute('data-redefinir-senha')); };
   });
 
   var selTipo = document.getElementById('sel-tipo');
@@ -1570,6 +1592,117 @@ function modalParoquiano(id) {
     btnReapr.disabled = true;
     await atualizarStatusParoquiano(id, 'aprovado', '');
     fecharModal();
+  };
+}
+
+/* ==========================================================================
+ * RECUPERAÇÃO DE SENHA — Tela pública
+ * ========================================================================== */
+function telaRecuperacaoSenha() {
+  var corpo = '';
+  if (_recupSucesso) {
+    corpo =
+      '<div style="text-align:center;padding:32px 0;display:flex;flex-direction:column;align-items:center;gap:16px">' +
+        '<div style="width:64px;height:64px;background:var(--verde-bg);border-radius:50%;display:flex;align-items:center;justify-content:center">' + ic('check2') + '</div>' +
+        '<p style="font-size:16px;font-weight:600">Solicitação enviada!</p>' +
+        '<p style="font-size:14px;color:#555;max-width:280px;line-height:1.5">A secretaria foi notificada. Em breve você receberá sua nova senha pelo telefone ou pessoalmente.</p>' +
+        '<button class="btn btn-primary" id="recup-voltar-login">Voltar ao login</button>' +
+      '</div>';
+  } else {
+    corpo =
+      '<div class="stack">' +
+        '<div class="info-box" style="display:flex;align-items:flex-start;gap:10px">' +
+          ic('alert') +
+          '<p style="font-size:13px;line-height:1.5">A redefinição de senha é feita pela secretaria da paróquia. Informe seu utilizador abaixo e, em seguida, entre em contato: <b>(19) 3654-1258</b> ou <b>(19) 99670-3725</b> (WhatsApp).</p>' +
+        '</div>' +
+        (_recupErro ? '<div class="erro-box">' + ic('alert') + ' ' + esc(_recupErro) + '</div>' : '') +
+        '<div class="campo">' +
+          '<label>Seu utilizador</label>' +
+          '<input id="recup-login" type="text" placeholder="Ex: maria" autocapitalize="none" autocorrect="off" value="' + esc(_recupLogin) + '" />' +
+        '</div>' +
+        '<button class="btn btn-primary btn-lg" id="recup-enviar">' + ic('check') + ' Confirmar solicitação</button>' +
+        '<button class="btn" id="recup-voltar" style="width:100%">' + ic('arrowLeft') + ' Voltar ao login</button>' +
+      '</div>';
+  }
+  return '<div style="min-height:100vh;background:var(--fundo)">' +
+    '<div style="background:#fff;padding:16px;border-bottom:1px solid var(--borda);display:flex;align-items:center;gap:12px">' +
+      '<img src="' + ICONE_URL + '" style="width:32px;height:32px" />' +
+      '<div><p style="font-size:14px;font-weight:600">Recuperação de senha</p>' +
+      '<p style="font-size:12px;color:var(--cinza-texto)">Paróquia Santo Antônio</p></div>' +
+    '</div>' +
+    '<div style="padding:24px 16px">' + corpo + '</div>' +
+  '</div>';
+}
+
+function ligarEventosRecuperacao() {
+  var btnEnv = document.getElementById('recup-enviar');
+  if (btnEnv) btnEnv.onclick = function () {
+    var login = (document.getElementById('recup-login').value || '').trim().toLowerCase();
+    if (!login) { _recupErro = 'Informe seu utilizador.'; render(); return; }
+    var existe = (DADOS.usuarios || []).some(function (u) { return u.login.toLowerCase() === login; });
+    if (!existe) { _recupErro = 'Utilizador não encontrado. Verifique e tente novamente.'; render(); return; }
+    _recupLogin = login;
+    _recupErro = '';
+    _recupSucesso = true;
+    render();
+  };
+
+  document.querySelectorAll('#recup-voltar, #recup-voltar-login').forEach(function (btn) {
+    if (btn) btn.onclick = function () { VISAO = null; _recupErro = ''; _recupSucesso = false; render(); };
+  });
+}
+
+/* ==========================================================================
+ * MODAL — Redefinir senha (admin)
+ * ========================================================================== */
+function modalRedefinirSenha(id) {
+  var u = (DADOS.usuarios || []).find(function (x) { return x.id === String(id); });
+  if (!u) return;
+  var corpo =
+    '<div class="stack">' +
+      '<p style="font-size:14px">Redefinindo a senha de <b>' + esc(u.nome) + '</b>.</p>' +
+      '<div class="campo">' +
+        '<label>Nova senha <span style="color:var(--vermelho)">*</span></label>' +
+        '<div class="senha-wrap">' +
+          '<input id="rds-nova" type="password" placeholder="Mínimo 4 caracteres" />' +
+          '<button class="senha-toggle" id="rds-toggle" type="button">' + ic('eye') + '</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="campo">' +
+        '<label>Confirmar nova senha <span style="color:var(--vermelho)">*</span></label>' +
+        '<input id="rds-confirmar" type="password" placeholder="Repita a senha" />' +
+      '</div>' +
+      '<div id="rds-erro"></div>' +
+      '<button class="btn btn-primary btn-lg" id="rds-salvar">' + ic('key') + ' Salvar nova senha</button>' +
+    '</div>';
+  abrirModal('Redefinir senha', corpo);
+
+  var toggle = document.getElementById('rds-toggle');
+  if (toggle) toggle.onclick = function () {
+    var inp = document.getElementById('rds-nova');
+    if (!inp) return;
+    var visivel = inp.type === 'text';
+    inp.type = visivel ? 'password' : 'text';
+    toggle.innerHTML = ic(visivel ? 'eye' : 'eyeOff');
+  };
+
+  document.getElementById('rds-salvar').onclick = async function () {
+    var nova = (document.getElementById('rds-nova').value || '');
+    var conf = (document.getElementById('rds-confirmar').value || '');
+    var erroEl = document.getElementById('rds-erro');
+    erroEl.innerHTML = '';
+    if (nova.length < 4) { erroEl.innerHTML = '<div class="erro-box">' + ic('alert') + ' A senha precisa ter pelo menos 4 caracteres.</div>'; return; }
+    if (nova !== conf) { erroEl.innerHTML = '<div class="erro-box">' + ic('alert') + ' As senhas não coincidem.</div>'; return; }
+    var btn = document.getElementById('rds-salvar');
+    btn.disabled = true; btn.textContent = 'Salvando...';
+    var ok = await atualizarSenhaUsuario(id, nova);
+    if (ok) {
+      fecharModal();
+      abrirModal('Senha redefinida', '<div style="text-align:center;padding:16px 0"><div style="font-size:48px">✓</div><p style="margin-top:8px">A senha de <b>' + esc(u.nome) + '</b> foi atualizada com sucesso.</p></div>');
+    } else {
+      btn.disabled = false; btn.innerHTML = ic('key') + ' Salvar nova senha';
+      erroEl.innerHTML = '<div class="erro-box">' + ic('alert') + ' Erro ao salvar. Verifique sua conexão.</div>';
+    }
   };
 }
 
