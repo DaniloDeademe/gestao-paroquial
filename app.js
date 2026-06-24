@@ -637,7 +637,7 @@ function telaMais() {
     { id: 'catequistas', label: 'Catequistas', icone: 'grad', who: ['padre', 'escritorio'] },
     { id: 'catequizandos', label: 'Catequizandos', icone: 'users', who: ['padre', 'escritorio'] },
     { id: 'relatorios', label: 'Relatórios', icone: 'chart', who: ['padre'] },
-    { id: 'usuarios', label: 'Utilizadores e acessos', icone: 'key', who: ['padre', 'escritorio'] },
+    { id: 'usuarios', label: 'Utilizadores e acessos' + (((DADOS.recuperacoes||[]).filter(function(r){return !r.resolvido;}).length) ? ' <span style="background:var(--vermelho);color:#fff;font-size:11px;font-weight:700;padding:1px 7px;border-radius:99px">' + (DADOS.recuperacoes||[]).filter(function(r){return !r.resolvido;}).length + '</span>' : ''), icone: 'key', who: ['padre', 'escritorio'] },
     { id: 'qr', label: 'Ecrã QR Code (demo)', icone: 'qr', who: ['padre', 'catequista', 'escritorio'] }
   ];
   var lista = itens.filter(function (it) { return it.who.indexOf(u.tipo) >= 0; }).map(function (it) {
@@ -757,6 +757,45 @@ function pgUsuarios() {
   var botao = '<button class="btn btn-primary btn-sm" id="btn-novo-usuario">' + ic('userPlus') + ' Novo acesso</button>';
   var aviso = '<div class="info-box" style="margin-bottom:12px;display:flex;align-items:flex-start;gap:8px">' + ic('shield', '') +
     ' Aqui você cria os logins de quem vai usar o sistema. Cada pessoa entra com o seu próprio utilizador e senha, e o perfil define o que ela pode fazer.</div>';
+
+  var pendentes = (DADOS.recuperacoes || []).filter(function (r) { return !r.resolvido; });
+  var resolvidas = (DADOS.recuperacoes || []).filter(function (r) { return r.resolvido; });
+  var secaoRecup = '';
+  if (DADOS.recuperacoes && DADOS.recuperacoes.length) {
+    var listaPend = pendentes.map(function (r) {
+      var u = usuarios.find(function (x) { return x.login === r.login; });
+      return '<div style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--borda)">' +
+        '<div class="avatar cinza" style="width:36px;height:36px;flex-shrink:0">' + esc(r.login.slice(0,2).toUpperCase()) + '</div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<p style="font-size:14px;font-weight:500">' + esc(u ? u.nome : r.login) + '</p>' +
+          '<p class="muted">utilizador: <span class="mono">' + esc(r.login) + '</span></p>' +
+          '<p class="muted">' + (r.data ? fmtData(r.data.slice(0,10)) + ' às ' + r.data.slice(11,16) : '—') + '</p>' +
+        '</div>' +
+        '<button class="btn btn-primary btn-sm" data-resolver-recup="' + r.id + '">' + ic('check') + ' Resolver</button>' +
+      '</div>';
+    }).join('');
+    var listaRes = resolvidas.map(function (r) {
+      return '<div style="display:flex;align-items:center;gap:12px;padding:10px;opacity:0.6">' +
+        '<div class="avatar cinza" style="width:32px;height:32px;flex-shrink:0;font-size:11px">' + esc(r.login.slice(0,2).toUpperCase()) + '</div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<p style="font-size:13px;font-weight:500">' + esc(r.login) + ' <span class="pill pill-success" style="font-size:11px">' + ic('check2') + ' Resolvido</span></p>' +
+          '<p class="muted" style="font-size:12px">por ' + esc(r.resolvidoPor || '—') + ' · ' + (r.dataResolucao ? fmtData(r.dataResolucao.slice(0,10)) : '—') + '</p>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    secaoRecup =
+      '<div style="margin-bottom:16px">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+          '<p style="font-size:13px;font-weight:600">Solicitações de recuperação de senha</p>' +
+          (pendentes.length ? '<span class="pill pill-danger">' + pendentes.length + ' pendente' + (pendentes.length > 1 ? 's' : '') + '</span>' : '<span class="pill pill-success">Em dia</span>') +
+        '</div>' +
+        '<div class="card card-lista" style="overflow:hidden">' +
+          (pendentes.length ? listaPend : '<p style="padding:16px;text-align:center;color:var(--cinza-texto);font-size:13px">Nenhuma solicitação pendente.</p>') +
+          (resolvidas.length ? '<details style="border-top:1px solid var(--borda)"><summary style="padding:10px 12px;font-size:12px;color:var(--cinza-texto);cursor:pointer">Ver ' + resolvidas.length + ' resolvida' + (resolvidas.length > 1 ? 's' : '') + '</summary>' + listaRes + '</details>' : '') +
+        '</div>' +
+      '</div>';
+  }
+
   var lista = usuarios.map(function (u) {
     var ehVoce = u.login === USUARIO.login;
     return '<div class="card card-pad" style="margin-bottom:8px"><div style="display:flex;align-items:center;gap:12px">' +
@@ -770,7 +809,7 @@ function pgUsuarios() {
       '<button class="icon-btn" data-remover-usuario="' + u.id + '" title="Remover acesso">' + ic('trash') + '</button>' +
       '</div></div></div>';
   }).join('');
-  return '<div class="row-between"><h2 class="serif page-titulo" style="display:none"></h2>' + botao + '</div>' + aviso + lista;
+  return secaoRecup + '<div class="row-between"><h2 class="serif page-titulo" style="display:none"></h2>' + botao + '</div>' + aviso + lista;
 }
 
 /* ==========================================================================
@@ -1129,6 +1168,13 @@ function ligarEventosApp() {
 
   document.querySelectorAll('[data-redefinir-senha]').forEach(function (b) {
     b.onclick = function () { modalRedefinirSenha(b.getAttribute('data-redefinir-senha')); };
+  });
+
+  document.querySelectorAll('[data-resolver-recup]').forEach(function (b) {
+    b.onclick = async function () {
+      b.disabled = true;
+      await resolverRecuperacao(b.getAttribute('data-resolver-recup'));
+    };
   });
 
   var selTipo = document.getElementById('sel-tipo');
@@ -1671,6 +1717,7 @@ function ligarEventosRecuperacao() {
     }
     _recupLogin = login;
     _recupErro = '';
+    salvarSolicitacaoRecuperacao(login);
     _recupSucesso = true;
     render();
   };

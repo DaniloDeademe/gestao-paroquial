@@ -16,69 +16,68 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, 
 
 let DADOS = {
   turmas: [], catequistas: [], catequizandos: [], presencas: [], eventos: [], usuarios: [],
-  apostilas: [], paroquianos: []
+  apostilas: [], paroquianos: [], recuperacoes: []
 };
 
-// 2. FUNÇÃO PARA CARREGAR DADOS DA NUVEM
+// 2. HELPER — fetch direto à API REST (contorna problemas do SDK com Tracking Prevention)
+async function fetchREST(path) {
+  const res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status + ' em ' + path);
+  return res.json();
+}
+
+// 3. FUNÇÃO PARA CARREGAR DADOS DA NUVEM
 async function carregarDadosDaNuvem() {
   try {
-    let resUsers = await supabaseClient.from('usuarios').select('*');
-    console.log('[Supabase] usuarios →', { data: resUsers.data, error: resUsers.error });
-    if (resUsers.error) console.warn('Erro ao carregar usuarios:', resUsers.error.message);
-    if (resUsers.data) {
-      DADOS.usuarios = resUsers.data.map(u => ({
-        id: String(u.id), nome: u.nome, login: u.login, senha: u.senha_hash, tipo: u.tipo_perfil
-      }));
-    }
-    if (!DADOS.usuarios.length) console.warn('Nenhum usuário carregado do banco.');
+    const [users, turmas, alunos, eventos, presencas, catequistas, catTurma, apostilas, paroquianos] = await Promise.all([
+      fetchREST('usuarios?select=*'),
+      fetchREST('turmas?select=*'),
+      fetchREST('catequizandos?select=*'),
+      fetchREST('eventos?select=*'),
+      fetchREST('presencas?select=*'),
+      fetchREST('catequistas?select=*'),
+      fetchREST('catequista_turma?select=*'),
+      fetchREST('apostilas?select=*'),
+      fetchREST('paroquianos?select=*&order=created_at.desc').catch(() => [])
+    ]);
 
-    let resTurmas = await supabaseClient.from('turmas').select('*');
-    if (resTurmas.data) {
-      DADOS.turmas = resTurmas.data.map(t => ({
-        id: String(t.id), nome: t.nome, nivel: t.nivel, anoLetivo: t.ano_letivo, diaSemana: t.dia_semana, sala: t.sala
-      }));
-    }
+    DADOS.usuarios = users.map(u => ({
+      id: String(u.id), nome: u.nome, login: u.login, senha: u.senha_hash, tipo: u.tipo_perfil
+    }));
 
-    let resAlunos = await supabaseClient.from('catequizandos').select('*');
-    if (resAlunos.data) {
-      DADOS.catequizandos = resAlunos.data.map(a => ({
-        id: String(a.id), nome: a.nome, turmaId: String(a.turma_id), dataNasc: a.data_nasc, responsavel: a.responsavel, telefone: a.telefone
-      }));
-    }
+    DADOS.turmas = turmas.map(t => ({
+      id: String(t.id), nome: t.nome, nivel: t.nivel, anoLetivo: t.ano_letivo, diaSemana: t.dia_semana, sala: t.sala
+    }));
 
-    let resEventos = await supabaseClient.from('eventos').select('*');
-    if (resEventos.data) {
-      DADOS.eventos = resEventos.data.map(e => ({
-        id: String(e.id), titulo: e.titulo, data: e.data_evento, tipo: e.tipo, turmaId: String(e.turma_id)
-      }));
-    }
+    DADOS.catequizandos = alunos.map(a => ({
+      id: String(a.id), nome: a.nome, turmaId: String(a.turma_id), dataNasc: a.data_nasc, responsavel: a.responsavel, telefone: a.telefone
+    }));
 
-    let resPres = await supabaseClient.from('presencas').select('*');
-    if (resPres.data) {
-      DADOS.presencas = resPres.data.map(p => ({
-        id: String(p.id), catequizandoId: String(p.catequizando_id), data: p.data_encontro, tipo: p.tipo, situacao: p.situacao
-      }));
-    }
+    DADOS.eventos = eventos.map(e => ({
+      id: String(e.id), titulo: e.titulo, data: e.data_evento, tipo: e.tipo, turmaId: String(e.turma_id)
+    }));
 
-    let resCat = await supabaseClient.from('catequistas').select('*, catequista_turma(turma_id)');
-    if (resCat.data) {
-      DADOS.catequistas = resCat.data.map(c => ({
-        id: String(c.id), nome: c.nome, nivel: c.nivel, telefone: c.telefone,
-        turmas: c.catequista_turma ? c.catequista_turma.map(ct => String(ct.turma_id)) : []
-      }));
-    }
+    DADOS.presencas = presencas.map(p => ({
+      id: String(p.id), catequizandoId: String(p.catequizando_id), data: p.data_encontro, tipo: p.tipo, situacao: p.situacao
+    }));
 
-    let resApostilas = await supabaseClient.from('apostilas').select('*');
-    if (resApostilas.data) {
-      DADOS.apostilas = resApostilas.data.map(ap => ({
-        id: String(ap.id), titulo: ap.titulo, nivel: ap.nivel, capitulo: ap.capitulo, url: ap.arquivo_url
-      }));
-    }
+    DADOS.catequistas = catequistas.map(c => ({
+      id: String(c.id), nome: c.nome, nivel: c.nivel, telefone: c.telefone,
+      turmas: catTurma.filter(ct => String(ct.catequista_id) === String(c.id)).map(ct => String(ct.turma_id))
+    }));
 
-    let resPar = await supabaseClient.from('paroquianos').select('*').order('created_at', { ascending: false });
-    if (resPar.data) {
-      DADOS.paroquianos = resPar.data.map(mapParoquiano);
-    }
+    DADOS.apostilas = apostilas.map(ap => ({
+      id: String(ap.id), titulo: ap.titulo, nivel: ap.nivel, capitulo: ap.capitulo, url: ap.arquivo_url
+    }));
+
+    DADOS.paroquianos = Array.isArray(paroquianos) ? paroquianos.map(mapParoquiano) : [];
+
+    const recuperacoes = await fetchREST('recuperacoes_senha?select=*&order=data_solicitacao.desc').catch(() => []);
+    DADOS.recuperacoes = Array.isArray(recuperacoes) ? recuperacoes.map(function (r) {
+      return { id: String(r.id), login: r.login, data: r.data_solicitacao, resolvido: r.resolvido, resolvidoPor: r.resolvido_por, dataResolucao: r.data_resolucao };
+    }) : [];
 
     concluirCarregamento();
 
@@ -278,7 +277,41 @@ async function salvarInscricao(dados) {
   }
 }
 
-// 6. REDEFINIR SENHA DE USUÁRIO
+// 6. SOLICITAÇÃO DE RECUPERAÇÃO DE SENHA
+async function salvarSolicitacaoRecuperacao(login) {
+  try {
+    const { data, error } = await supabaseClient.from('recuperacoes_senha').insert([{ login: login }]).select();
+    if (error) throw error;
+    if (data && data.length) {
+      DADOS.recuperacoes = [{ id: String(data[0].id), login: data[0].login, data: data[0].data_solicitacao, resolvido: false, resolvidoPor: null, dataResolucao: null }].concat(DADOS.recuperacoes);
+    }
+    return true;
+  } catch (erro) {
+    console.error('Erro ao salvar solicitação:', erro);
+    return false;
+  }
+}
+
+async function resolverRecuperacao(id) {
+  try {
+    const { error } = await supabaseClient.from('recuperacoes_senha').update({
+      resolvido: true,
+      resolvido_por: USUARIO ? USUARIO.nome : null,
+      data_resolucao: new Date().toISOString()
+    }).eq('id', id);
+    if (error) throw error;
+    DADOS.recuperacoes = DADOS.recuperacoes.map(function (r) {
+      return r.id === String(id) ? Object.assign({}, r, { resolvido: true, resolvidoPor: USUARIO ? USUARIO.nome : null, dataResolucao: new Date().toISOString() }) : r;
+    });
+    render();
+    return true;
+  } catch (erro) {
+    console.error('Erro ao resolver solicitação:', erro);
+    return false;
+  }
+}
+
+// 7. REDEFINIR SENHA DE USUÁRIO
 async function atualizarSenhaUsuario(id, novaSenha) {
   try {
     let { error } = await supabaseClient
