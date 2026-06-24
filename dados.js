@@ -9,8 +9,9 @@ const ICONE_URL = "assets/PadroeiroSantoAntônio2.svg";
 const SUPABASE_URL = 'https://kmaprgbdghsyftbwminu.supabase.co'; 
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttYXByZ2JkZ2hzeWZ0YndtaW51Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNjkxNDgsImV4cCI6MjA5Njc0NTE0OH0.Y8kuTIfgVWFYtc4NtVlPoC-ZI5nbHFJrwfbuVuBaNdg'; // <- COLE A SUA CHAVE AQUI
 
+const _semStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storage: _semStorage }
 });
 
 let DADOS = {
@@ -22,6 +23,7 @@ let DADOS = {
 async function carregarDadosDaNuvem() {
   try {
     let resUsers = await supabaseClient.from('usuarios').select('*');
+    console.log('[Supabase] usuarios →', { data: resUsers.data, error: resUsers.error });
     if (resUsers.error) console.warn('Erro ao carregar usuarios:', resUsers.error.message);
     if (resUsers.data) {
       DADOS.usuarios = resUsers.data.map(u => ({
